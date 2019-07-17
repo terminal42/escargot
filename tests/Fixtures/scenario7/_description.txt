@@ -1,0 +1,2 @@
+This scenario tests if we're correctly NOT following the third request.
+This is because we set maxRequests to be 2.

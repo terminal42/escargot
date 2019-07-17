@@ -1,0 +1,3 @@
+This scenario tests if we're correctly NOT following the second request.
+It is disallowed by the rel="nofollow" attribute on the link.
+Also the second link is an image link so it should not be followed either.

@@ -1,0 +1,2 @@
+This scenario tests if we're correctly NOT following the second request.
+It is disallowed by the robots.txt.

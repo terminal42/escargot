@@ -1,0 +1,13 @@
+https://www.terminal42.ch/
+
+HTTP/2.0 200 OK
+content-type: text/html; charset=UTF-8
+
+<html>
+    <head>
+    </head>
+    <body>
+        <a rel="nofollow" href="https://www.terminal42.ch/foobar">
+        <p>You can download the image <a href="https://www.terminal42.ch/image.jpg" type="image/jpg">here</a>!</p>
+    </body>
+</html>

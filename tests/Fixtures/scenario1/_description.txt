@@ -1,0 +1,1 @@
+This scenario just simply tests a very basic request, nothing fancy.

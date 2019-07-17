@@ -1,0 +1,51 @@
+{
+    "name": "terminal42/escargot",
+    "description": "A web crawler or spider library based on Symfony components",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["escargot", "index", "search", "crawl", "spider"],
+    "homepage": "https://www.terminal42.ch",
+    "authors": [
+        {
+            "name": "Yanick Witschi",
+            "homepage": "https://github.com/toflar",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "source": "https://github.com/terminal42/escargot"
+    },
+    "require": {
+        "php": "^7.1",
+        "nyholm/psr7": "^1.1",
+        "psr/http-message": "^1.0",
+        "psr/log": "^1.1",
+        "symfony/css-selector": "^4.3",
+        "symfony/dom-crawler": "^4.3",
+        "symfony/event-dispatcher": "^4.3",
+        "symfony/http-client": "^4.3",
+        "webignition/robots-txt-file": "^2.1"
+    },
+    "require-dev": {
+        "doctrine/dbal": "^2.9",
+        "friendsofphp/php-cs-fixer": "^2.15",
+        "phpunit/phpunit": "^8.2",
+        "symfony/finder": "^4.3"
+    },
+    "config": {
+        "preferred-install": {
+            "*": "dist"
+        },
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "Terminal42\\Escargot\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Terminal42\\Escargot\\Tests\\": "tests/"
+        }
+    }
+}
