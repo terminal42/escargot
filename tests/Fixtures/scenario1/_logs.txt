@@ -1,2 +1,2 @@
-Successful request! URI: https://www.terminal42.ch/ (Level: 0 - Found on root).
+Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root).
 Finished crawling! Sent 1 request(s).

@@ -273,7 +273,7 @@ final class Escargot
         // We're finished if we have reached the max requests or the queue is empty
         // and no request is being processed anymore
         if (0 === $this->runningRequests
-            && ($this->isMaxRequestsReached() || !$this->queue->hasPending($this->jobId))
+            && ($this->isMaxRequestsReached() || null === $this->queue->getNext($this->jobId))
         ) {
             $this->getEventDispatcher()->dispatch(new FinishedCrawlingEvent($this));
 
@@ -326,12 +326,13 @@ final class Escargot
             && ($crawlUri = $this->queue->getNext($this->jobId))
         ) {
             // Already processed, ignore
-            if ($this->queue->isProcessed($this->jobId, $crawlUri)) {
+            if ($crawlUri->isProcessed()) {
                 continue;
             }
 
             // Otherwise mark as processed
-            $this->queue->markProcessed($this->jobId, $crawlUri);
+            $crawlUri->markProcessed();
+            $this->queue->add($this->jobId, $crawlUri);
 
             // Request delay
             if (0 !== $this->requestDelay) {
@@ -412,11 +413,11 @@ final class Escargot
                 continue;
             }
 
-            $crawlUri = new CrawlUri($uri, $currentCrawlUri->getLevel() + 1, $currentCrawlUri->getUri());
-
-            // Add it to the queue if it was not processed yet
-            if (!$this->queue->isProcessed($this->jobId, $crawlUri)) {
-                $this->queue->add($this->jobId, $crawlUri);
+            // Add it to the queue if not present already
+            $crawlUrl = $this->queue->get($this->jobId, $uri);
+            if (null === $crawlUrl) {
+                $crawlUrl = new CrawlUri($uri, $currentCrawlUri->getLevel() + 1, false, $currentCrawlUri->getUri());
+                $this->queue->add($this->jobId, $crawlUrl);
             }
         }
     }

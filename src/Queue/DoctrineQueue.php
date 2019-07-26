@@ -97,90 +97,66 @@ class DoctrineQueue implements QueueInterface
         return new Uri($uri);
     }
 
-    public function has(string $jobId, CrawlUri $crawlUri): bool
+    public function get(string $jobId, UriInterface $uri): ?CrawlUri
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('COUNT(job_id) as count')
+            ->select('uri, level, processed, found_on')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->andWhere('uri = :uri')
             ->setParameter(':jobId', $jobId, Type::STRING)
-            ->setParameter(':uri', (string) $crawlUri->getUri(), Type::STRING)
+            ->setParameter(':uri', (string) $uri, Type::STRING)
             ->setMaxResults(1);
 
-        return (bool) $queryBuilder->execute()->fetchColumn();
+        $data = $queryBuilder->execute()->fetch();
+
+        if (false === $data) {
+            return null;
+        }
+
+        $foundOn = null;
+
+        if ($data['found_on']) {
+            $foundOn = new Uri($data['found_on']);
+        }
+
+        return new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
     }
 
     public function add(string $jobId, CrawlUri $crawlUri): void
     {
-        if ($this->has($jobId, $crawlUri)) {
-            return;
+        $queryBuilder = $this->connection->createQueryBuilder();
+
+        if (null === $this->get($jobId, $crawlUri->getUri())) {
+            $queryBuilder
+                ->insert($this->tableName)
+                ->values([
+                    'job_id' => ':jobId',
+                    'uri' => ':uri',
+                    'level' => ':level',
+                    'processed' => ':processed',
+                ])
+                ->setParameter(':level', (int) $crawlUri->getLevel(), Type::INTEGER);
+        } else {
+            $queryBuilder
+                ->update($this->tableName)
+                ->set('processed', ':processed')
+                ->where('job_id = :jobId')
+                ->andWhere('uri = :uri');
         }
 
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->insert($this->tableName)
-            ->values([
-                'job_id' => ':jobId',
-                'uri' => ':uri',
-                'level' => ':level',
-                'processed' => ':processed',
-            ])
+        $queryBuilder
             ->setParameter(':jobId', $jobId, Type::STRING)
             ->setParameter(':uri', (string) $crawlUri->getUri(), Type::STRING)
-            ->setParameter(':level', $crawlUri->getLevel(), Type::INTEGER)
-            ->setParameter(':processed', false, Type::BOOLEAN);
+            ->setParameter(':processed', $crawlUri->isProcessed(), Type::BOOLEAN);
 
         $queryBuilder->execute();
-    }
-
-    public function markProcessed(string $jobId, CrawlUri $crawlUri): void
-    {
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->update($this->tableName)
-            ->set('processed', ':processed')
-            ->where('job_id = :jobId')
-            ->andWhere('uri = :uri')
-            ->setParameter(':jobId', $jobId, Type::STRING)
-            ->setParameter(':uri', (string) $crawlUri->getUri(), Type::STRING)
-            ->setParameter(':processed', true, Type::BOOLEAN);
-
-        $queryBuilder->execute();
-    }
-
-    public function isProcessed(string $jobId, CrawlUri $crawlUri): bool
-    {
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('COUNT(job_id) as count')
-            ->from($this->tableName)
-            ->where('job_id = :jobId')
-            ->andWhere('uri = :uri')
-            ->andWhere('processed = :processed')
-            ->setParameter(':jobId', $jobId, Type::STRING)
-            ->setParameter(':uri', (string) $crawlUri->getUri(), Type::STRING)
-            ->setParameter(':processed', true, Type::BOOLEAN)
-            ->setMaxResults(1);
-
-        return (bool) $queryBuilder->execute()->fetchColumn();
-    }
-
-    public function hasPending(string $jobId): bool
-    {
-        $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('COUNT(job_id) as count')
-            ->from($this->tableName)
-            ->where('job_id = :jobId')
-            ->andWhere('processed = :processed')
-            ->setParameter(':jobId', $jobId, Type::STRING)
-            ->setParameter(':processed', false, Type::BOOLEAN)
-            ->setMaxResults(1);
-
-        return (bool) $queryBuilder->execute()->fetchColumn();
     }
 
     public function getNext(string $jobId): ?CrawlUri
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, found_on')
+            ->select('uri, level, processed, found_on')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->andWhere('processed = :processed')
@@ -201,7 +177,7 @@ class DoctrineQueue implements QueueInterface
             $foundOn = new Uri($data['found_on']);
         }
 
-        return new CrawlUri(new Uri($data['uri']), (int) $data['level'], $foundOn);
+        return new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
     }
 
     public function countAll(string $jobId): int
@@ -233,7 +209,7 @@ class DoctrineQueue implements QueueInterface
     public function getAll(string $jobId): \Generator
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, found_on')
+            ->select('uri, level, processed, found_on')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->orderBy('id', 'ASC')
@@ -251,7 +227,7 @@ class DoctrineQueue implements QueueInterface
                 $foundOn = new Uri($data['found_on']);
             }
 
-            yield new CrawlUri(new Uri($data['uri']), (int) $data['level'], $foundOn);
+            yield new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
         }
     }
 

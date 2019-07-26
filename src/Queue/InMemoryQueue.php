@@ -27,11 +27,6 @@ class InMemoryQueue implements QueueInterface
      */
     private $queue = [];
 
-    /**
-     * @var array<string,array<string,bool>>
-     */
-    private $processed = [];
-
     public function createJobId(UriInterface $baseUri): string
     {
         $jobId = bin2hex(random_bytes(32));
@@ -50,7 +45,7 @@ class InMemoryQueue implements QueueInterface
 
     public function deleteJobId(string $jobId): void
     {
-        unset($this->baseUris[$jobId], $this->queue[$jobId], $this->processed[$jobId]);
+        unset($this->baseUris[$jobId], $this->queue[$jobId]);
     }
 
     public function getBaseUri(string $jobId): UriInterface
@@ -58,9 +53,9 @@ class InMemoryQueue implements QueueInterface
         return $this->baseUris[$jobId];
     }
 
-    public function has(string $jobId, CrawlUri $crawlUri): bool
+    public function get(string $jobId, UriInterface $uri): ?CrawlUri
     {
-        return isset($this->queue[$jobId][(string) $crawlUri->getUri()]);
+        return $this->queue[$jobId][(string) $uri] ?? null;
     }
 
     public function add(string $jobId, CrawlUri $crawlUri): void
@@ -70,23 +65,6 @@ class InMemoryQueue implements QueueInterface
         }
 
         $this->queue[$jobId][(string) $crawlUri->getUri()] = $crawlUri;
-        $this->processed[$jobId][(string) $crawlUri->getUri()] = false;
-    }
-
-    public function markProcessed(string $jobId, CrawlUri $crawlUri): void
-    {
-        $this->processed[$jobId][(string) $crawlUri->getUri()] = true;
-    }
-
-    public function isProcessed(string $jobId, CrawlUri $crawlUri): bool
-    {
-        return isset($this->processed[$jobId][(string) $crawlUri->getUri()])
-            && true === $this->processed[$jobId][(string) $crawlUri->getUri()];
-    }
-
-    public function hasPending(string $jobId): bool
-    {
-        return \in_array(false, $this->processed[$jobId], true);
     }
 
     public function getNext(string $jobId): ?CrawlUri
@@ -95,9 +73,9 @@ class InMemoryQueue implements QueueInterface
             return null;
         }
 
-        foreach ($this->processed[$jobId] as $uri => $processed) {
-            if (!$processed) {
-                return $this->queue[$jobId][$uri];
+        foreach ($this->queue[$jobId] as $uri => $crawlUri) {
+            if (!$crawlUri->isProcessed()) {
+                return $crawlUri;
             }
         }
 
@@ -113,8 +91,8 @@ class InMemoryQueue implements QueueInterface
     {
         $count = 0;
 
-        foreach ($this->processed[$jobId] as $uri => $processed) {
-            if (!$processed) {
+        foreach ($this->queue[$jobId] as $uri => $crawlUri) {
+            if (!$crawlUri->isProcessed()) {
                 ++$count;
             }
         }

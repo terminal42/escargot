@@ -1,4 +1,4 @@
-Successful request! URI: https://www.terminal42.ch/ (Level: 0 - Found on root).
+Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root).
 Excluded an URI because of the configured UriFilter: https://www.terminal42.ch/foobar
 Excluded an URI because of the configured UriFilter: https://www.terminal42.ch/image.jpg
 Finished crawling! Sent 1 request(s).

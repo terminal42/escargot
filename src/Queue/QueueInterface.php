@@ -44,10 +44,10 @@ interface QueueInterface
     public function getBaseUri(string $jobId): UriInterface;
 
     /**
-     * Returns true if a CrawlUri has already been added.
-     * This does not mean it has been processed (see isProcessed()).
+     * Returns a CrawlUri for a given UriInterface if already
+     * added to the queue.
      */
-    public function has(string $jobId, CrawlUri $crawlUri): bool;
+    public function get(string $jobId, UriInterface $baseUri): ?CrawlUri;
 
     /**
      * Adds a new CrawlUri instance to the queue.
@@ -59,26 +59,16 @@ interface QueueInterface
     public function add(string $jobId, CrawlUri $crawlUri): void;
 
     /**
-     * Marks a CrawlUri as processed.
-     */
-    public function markProcessed(string $jobId, CrawlUri $crawlUri): void;
-
-    /**
-     * Returns true if a CrawlUri has been processed.
-     */
-    public function isProcessed(string $jobId, CrawlUri $crawlUri): bool;
-
-    /**
-     * Allows you to check if there are any pending URIs to crawl.
-     */
-    public function hasPending(string $jobId): bool;
-
-    /**
      * Gets the next CrawlUri off the queue. Note that there's no
      * blocking feature implemented. So if you have multiple
      * workers working on the same queue and the same job ID,
      * you have to ensure the data is not processed multiple
      * times yourself.
+     * This method has to be implemented in an idempotent way so multiple
+     * consecutive getNext() calls with the same parameters should not
+     * cause the the state of the queue to change. This method is also
+     * used to check if there's still anything to process on the queue
+     * even if the returned CrawlUri is not being used.
      */
     public function getNext(string $jobId): ?CrawlUri;
 

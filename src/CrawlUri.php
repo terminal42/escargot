@@ -27,22 +27,29 @@ class CrawlUri
     private $level;
 
     /**
+     * @var bool
+     */
+    private $processed = false;
+
+    /**
      * @var UriInterface|null
      */
     private $foundOn;
 
-    public function __construct(UriInterface $uri, int $level, UriInterface $foundOn = null)
+    public function __construct(UriInterface $uri, int $level, bool $processed = false, UriInterface $foundOn = null)
     {
         $this->uri = $uri;
         $this->level = $level;
+        $this->processed = $processed;
         $this->foundOn = $foundOn;
     }
 
     public function __toString()
     {
-        return sprintf('URI: %s (Level: %d - Found on %s).',
+        return sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s).',
             (string) $this->getUri(),
             $this->getLevel(),
+            $this->isProcessed() ? 'yes' : 'no',
             (string) $this->getFoundOn() ?: 'root'
         );
     }
@@ -55,6 +62,18 @@ class CrawlUri
     public function getUri(): UriInterface
     {
         return $this->uri;
+    }
+
+    public function isProcessed(): bool
+    {
+        return $this->processed;
+    }
+
+    public function markProcessed(): self
+    {
+        $this->processed = true;
+
+        return $this;
     }
 
     public function getFoundOn(): ?UriInterface

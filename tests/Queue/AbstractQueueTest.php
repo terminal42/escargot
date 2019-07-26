@@ -35,51 +35,59 @@ abstract class AbstractQueueTest extends TestCase
     public function testQueueHandling(): void
     {
         $baseUri = new Uri('https://www.terminal42.ch');
-        $crawlUri = new CrawlUri($baseUri, 0);
+        $baseCrawlUri = new CrawlUri($baseUri, 0);
 
         $queue = $this->getQueue();
         $jobId = $queue->createJobId($baseUri);
 
-        $this->assertTrue($queue->has($jobId, $crawlUri));
-        $this->assertFalse($queue->isProcessed($jobId, $crawlUri));
-        $this->assertTrue($queue->hasPending($jobId));
+        $this->assertNotNull($queue->get($jobId, $baseCrawlUri->getUri()));
+        $this->assertFalse($baseCrawlUri->isProcessed());
+        $this->assertNotNull($queue->getNext($jobId));
         $this->assertSame(1, $queue->countAll($jobId));
         $this->assertSame(1, $queue->countPending($jobId));
 
         $next = $queue->getNext($jobId);
 
-        $this->assertSame((string) $crawlUri, (string) $next);
+        $this->assertSame((string) $baseCrawlUri, (string) $next);
 
-        $queue->markProcessed($jobId, $crawlUri);
+        $baseCrawlUri->markProcessed();
+        $queue->add($jobId, $baseCrawlUri);
 
-        $this->assertTrue($queue->has($jobId, $crawlUri));
-        $this->assertTrue($queue->isProcessed($jobId, $crawlUri));
-        $this->assertFalse($queue->hasPending($jobId));
+        $this->assertNotNull($queue->get($jobId, $baseCrawlUri->getUri()));
+        $this->assertTrue($baseCrawlUri->isProcessed());
+        $this->assertNull($queue->getNext($jobId));
         $this->assertSame(1, $queue->countAll($jobId));
         $this->assertSame(0, $queue->countPending($jobId));
         $this->assertNull($queue->getNext($jobId));
 
         // Now let's add the same URI multiple times
-        $crawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1);
-        $queue->add($jobId, $crawlUri);
-        $queue->add($jobId, $crawlUri);
-        $queue->add($jobId, $crawlUri);
-        $queue->add($jobId, $crawlUri);
+        $foobarCrawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1);
+        $queue->add($jobId, $foobarCrawlUri);
+        $queue->add($jobId, $foobarCrawlUri);
+        $queue->add($jobId, $foobarCrawlUri);
+        $queue->add($jobId, $foobarCrawlUri);
 
         $this->assertSame(2, $queue->countAll($jobId));
         $this->assertSame(1, $queue->countPending($jobId));
 
         // Add another one just to see if the base URI is still returned correctly
-        $crawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar2'), 2);
-        $queue->add($jobId, $crawlUri);
+        $foobar2CrawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar2'), 2);
+        $queue->add($jobId, $foobar2CrawlUri);
 
         $this->assertSame((string) $baseUri, (string) $queue->getBaseUri($jobId));
 
         // Test the getAll()
         $this->assertInstanceOf(\Generator::class, $queue->getAll($jobId));
 
-        foreach ($queue->getAll($jobId) as $crawlUri) {
-            $this->assertInstanceOf(CrawlUri::class, $crawlUri);
-        }
+        $all = iterator_to_array($queue->getAll($jobId));
+
+        $this->assertInstanceOf(CrawlUri::class, $all[0]);
+        $this->assertSame((string) $baseCrawlUri, (string) $all[0]);
+
+        $this->assertInstanceOf(CrawlUri::class, $all[1]);
+        $this->assertSame((string) $foobarCrawlUri, (string) $all[1]);
+
+        $this->assertInstanceOf(CrawlUri::class, $all[2]);
+        $this->assertSame((string) $foobar2CrawlUri, (string) $all[2]);
     }
 }
