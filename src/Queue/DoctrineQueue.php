@@ -153,7 +153,7 @@ class DoctrineQueue implements QueueInterface
         $queryBuilder->execute();
     }
 
-    public function getNext(string $jobId): ?CrawlUri
+    public function getNext(string $jobId, int $skip = 0): ?CrawlUri
     {
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select('uri, level, processed, found_on')
@@ -164,6 +164,10 @@ class DoctrineQueue implements QueueInterface
             ->setParameter(':jobId', $jobId, Type::STRING)
             ->setParameter(':processed', false, Type::BOOLEAN)
             ->setMaxResults(1);
+
+        if ($skip > 0) {
+            $queryBuilder->setFirstResult($skip);
+        }
 
         $data = $queryBuilder->execute()->fetch();
 

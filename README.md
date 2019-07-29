@@ -97,6 +97,11 @@ This library ships with the following implementations for you to use:
 
 * `DoctrineQueue` - a Doctrine DBAL queue. Stores the data in your Doctrine/PDO compatible database so it's persistent.
 
+* `LazyQueue` - a queue that takes two `QueueInterface` implementations as arguments. It will try to work on the primary
+  queue as long as possible and fall back to the second queue only if needed. The result can be transferred from the
+  first queue to the second queue by using the `commit()` method. The use case is mainly to prevent e.g. the database
+  from being hammered by using `$queue = new LazyQueue(new InMemoryQueue(), new DoctrineQueue())`. 
+
 #### Start crawling
 
 After we have our `Escargot` instance, we can start crawling which we do by calling the `crawl()` method:
@@ -208,15 +213,6 @@ There are different configurations you can apply to the `Escargot` instance:
   version 1.0.0.
   
 * Support for canonical URLs is missing.
-  
-* I would like to have some `FallbackQueue` or `LazyQueue` that takes two queues of which the first one is
-  the main queue that's used to work on but if things are not found it falls back to the second queue.
-  Main use case for that is to use the `InMemoryQueue` as the first and then some persistent queue like
-  the `DoctrineQueue` as fallback. That way you can e.g. limit Escargot to only process 200 requests and
-  for those you use the `InMemoryQueue` for better performance and to relieve pressure from the persistent
-  queue. Once you're done, there should be some `->commit()` method one can call which will copy the result
-  of the first to the second queue. The current design of the `QueueInterface` should allow for something
-  like this but we'll see.
 
 * What about having Escargot interpret JavaScript before starting to crawl the content? Should be possible
   by having an `HttpClientInterface` implementation that bridges to `symfony/panther` or `facebook/webdriver`

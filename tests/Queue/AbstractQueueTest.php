@@ -89,5 +89,11 @@ abstract class AbstractQueueTest extends TestCase
 
         $this->assertInstanceOf(CrawlUri::class, $all[2]);
         $this->assertSame((string) $foobar2CrawlUri, (string) $all[2]);
+
+        // Test fetching the next queue entries
+        $this->assertSame((string) $foobarCrawlUri, (string) $queue->getNext($jobId));
+        $this->assertSame((string) $foobar2CrawlUri, (string) $queue->getNext($jobId, 1));
+        $this->assertNull($queue->getNext($jobId, 2));
+        $this->assertNull($queue->getNext($jobId, 50));
     }
 }

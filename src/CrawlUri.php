@@ -32,6 +32,11 @@ class CrawlUri
     private $processed = false;
 
     /**
+     * @var bool
+     */
+    private $wasMarkedProcessed = false;
+
+    /**
      * @var UriInterface|null
      */
     private $foundOn;
@@ -72,8 +77,14 @@ class CrawlUri
     public function markProcessed(): self
     {
         $this->processed = true;
+        $this->wasMarkedProcessed = true;
 
         return $this;
+    }
+
+    public function wasMarkedProcessed(): bool
+    {
+        return $this->wasMarkedProcessed;
     }
 
     public function getFoundOn(): ?UriInterface

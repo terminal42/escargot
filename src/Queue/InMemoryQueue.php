@@ -67,14 +67,20 @@ class InMemoryQueue implements QueueInterface
         $this->queue[$jobId][(string) $crawlUri->getUri()] = $crawlUri;
     }
 
-    public function getNext(string $jobId): ?CrawlUri
+    public function getNext(string $jobId, int $skip = 0): ?CrawlUri
     {
         if (!isset($this->queue[$jobId])) {
             return null;
         }
 
+        $i = 0;
         foreach ($this->queue[$jobId] as $uri => $crawlUri) {
             if (!$crawlUri->isProcessed()) {
+                if ($skip > 0 && $i < $skip) {
+                    ++$i;
+                    continue;
+                }
+
                 return $crawlUri;
             }
         }

@@ -69,8 +69,12 @@ interface QueueInterface
      * cause the the state of the queue to change. This method is also
      * used to check if there's still anything to process on the queue
      * even if the returned CrawlUri is not being used.
+     *
+     * The skip argument is used to skip n queued entries. It is especially
+     * useful for the LazyQueue implementation so it can skip n entries
+     * it's already processed and stored in the primary queue.
      */
-    public function getNext(string $jobId): ?CrawlUri;
+    public function getNext(string $jobId, int $skip = 0): ?CrawlUri;
 
     /**
      * Returns the total of all URIs.
