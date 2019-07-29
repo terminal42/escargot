@@ -7,9 +7,9 @@ prefer based on Symfony components.
 
 There are so many different implementations in so many programming languages, right?
 Well, the ones I found in PHP did not really live up to my personal quality standards and also I wanted something
-that's built on top of the Symfony HttpClient component.
+that's built on top of the Symfony HttpClient component. Hence, yet another library.
 
-### So what about that name «Escargot»?
+### What about that name «Escargot»?
 
 When I created this library I didn't want to name it «crawler» or «spider» or anything similar that's been used
 hundreds of times before. So I started to think about things that actually crawl and one thing that came to my mind
@@ -30,7 +30,7 @@ composer require terminal42/escargot
 
 Everything in Escargot is assigned to a job ID. The reason for this design is that crawling huge sites can take very
 long and chances that you'll want to stop at some point and pick up where you left are pretty high.
-For that matter every `Escargot` instance also needs a queue, plus a base URI as to where to start crawling.
+For that matter, every `Escargot` instance also needs a queue plus a base URI as to where to start crawling.
 Of course, because we execute requests, we can also provide an instance of `Symfony\Component\HttpClient\HttpClientInterface`
 but that's completely optional. If you do not provide any client, `HttpClient::create()` will be used and the best
 client is automatically chosen for you.
@@ -100,7 +100,8 @@ This library ships with the following implementations for you to use:
 * `LazyQueue` - a queue that takes two `QueueInterface` implementations as arguments. It will try to work on the primary
   queue as long as possible and fall back to the second queue only if needed. The result can be transferred from the
   first queue to the second queue by using the `commit()` method. The use case is mainly to prevent e.g. the database
-  from being hammered by using `$queue = new LazyQueue(new InMemoryQueue(), new DoctrineQueue())`. 
+  from being hammered by using `$queue = new LazyQueue(new InMemoryQueue(), new DoctrineQueue())`. That way you get
+  persistence (by calling `$queue->commit($jobId)` once done) combined with efficiency. 
 
 #### Start crawling
 
@@ -206,20 +207,18 @@ There are different configurations you can apply to the `Escargot` instance:
    By providing your own implementation of the `UriFilterInterface` you can completely customize the filtering
    to your needs.
    
-## Roadmap / TODOs
+## Roadmap / Ideas
 
 * This is just an alpha version so please expect things to break. I'm going to follow SemVer for this library
   which is why whe have 0.x version numbers for now unit I personally find it to be stable enough to release 
   version 1.0.0.
   
-* Support for canonical URLs is missing.
-
 * What about having Escargot interpret JavaScript before starting to crawl the content? Should be possible
   by having an `HttpClientInterface` implementation that bridges to `symfony/panther` or `facebook/webdriver`
   directly. PR's welcome!
+
+* Maybe one day, some talented illustrator finds this library and enhances it with a nice logo? :-)
   
-* I'm core dev of [Contao, an open source CMS](https://contao.org). I would like to integrate Escargot there
-  in one of the upcoming versions to improve the way search indexing is achieved. I already considered a
-  few things I know I will certainly need (e.g. the job ID to pick up where you left) when designing this
-  library but I guess you should know that I won't be tagging it stable before I've finished the
-  integration, I guess :-)
+* I'm a core dev member of [Contao, an open source CMS](https://contao.org). I would like to integrate Escargot there
+  in one of the upcoming versions to improve the way search indexing is achieved. I guess you should know that I will
+  likely not be tagging it stable before I've finished the integration but we'll see.

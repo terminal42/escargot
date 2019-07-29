@@ -290,7 +290,7 @@ final class Escargot
                 if ($chunk->isFirst()) {
                     // We're an HTML crawler, so we reject everything that's not text/html immediately
                     if (200 !== $response->getStatusCode() ||
-                        !isset($response->getHeaders()['content-type'][0]) // TODO: should we exctract the logic in some separate filter too?
+                        !isset($response->getHeaders()['content-type'][0]) // TODO: should we extract the logic in some separate filter too?
                         || false === strpos($response->getHeaders()['content-type'][0], 'text/html')
                     ) {
                         --$this->runningRequests;
