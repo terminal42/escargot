@@ -1,5 +1,7 @@
 # Escargot
 
+[![](https://travis-ci.com/terminal42/escargot.svg?branch=master)](https://travis-ci.com/terminal42/escargot)
+
 A library that provides everything you need to crawl your website and process the responses in whatever way you
 prefer based on Symfony components.
 
