@@ -130,9 +130,9 @@ Currently there are `3` different core events:
 
 * `FinishedCrawlingEvent`
 
-  This event is dispatched when crawling has finished because either the maximum configured requests have been reached (
-  see «Configuration») or the queue is empty, meaning there's nothing left to crawl. You have access to `Escargot` itself
-  which e.g. allows you to ask for the total requests sent (`Escargot::getRequestsSent()`).
+  This event is dispatched when crawling has finished because either the maximum configured requests have been reached 
+  (see «Configuration») or the queue is empty, meaning there's nothing left to crawl. You have access to `Escargot` 
+  itself which e.g. allows you to ask for the total requests sent (`Escargot::getRequestsSent()`).
   
 * `RequestExceptionEvent`
 
@@ -183,7 +183,7 @@ There are different configurations you can apply to the `Escargot` instance:
 
 * `Escargot::setConcurrency(int $concurrency)`
 
-   Let's you configure the maximum concurrent requests that are being sent. By default this is configured to `10`.
+   Let's you configure the maximum concurrent requests that are being sent. By default, this is configured to `10`.
    
 * `Escargot::setMaxDepth(int $maxDepth)`
 
@@ -192,19 +192,19 @@ There are different configurations you can apply to the `Escargot` instance:
    
 * `Escargot::setRequestDelay(int $requestDelay)`
 
-   Let's you configure the delay between requests in microseconds. By default it's `0` so there's no extra
+   Let's you configure the delay between requests in microseconds. By default, it's `0` so there's no extra
    delay. It can be useful to make sure Escargot does not run into some (D)DOS protection or similar issues.
 
 * `Escargot::setUriFilter(UriFilterInterface $uriFilter)`
 
    By default, Escargot is instantiated using the `DefaultUriFilter` which will ensure we follow only links that
-   fulfil the follwing requirements:
+   fulfil the following requirements:
    
-    * Either http or https schema
-    * The node does not have rel="nofollow" set
-    * The node does not have the type attribute set or it is set and the value equals to "text/html"
+    * Either `http` or `https` schema
+    * The node does not have `rel="nofollow"` set
+    * The node does not have the type attribute set or it is set and the value equals to `text/html`
     * The URI is allowed by the configured allowed hosts (by default just the same host as the base URI)
-    * The URI is allowed by the robots.txt of that URI
+    * The URI is allowed by the `robots.txt` of that URI
     
    By providing your own implementation of the `UriFilterInterface` you can completely customize the filtering
    to your needs.
@@ -212,7 +212,7 @@ There are different configurations you can apply to the `Escargot` instance:
 ## Roadmap / Ideas
 
 * This is just an alpha version so please expect things to break. I'm going to follow SemVer for this library
-  which is why whe have 0.x version numbers for now unit I personally find it to be stable enough to release 
+  which is why we have 0.x version numbers for now unit I personally find it to be stable enough to release 
   version 1.0.0.
   
 * What about having Escargot interpret JavaScript before starting to crawl the content? Should be possible
