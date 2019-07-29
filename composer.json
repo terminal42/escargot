@@ -29,8 +29,8 @@
     "require-dev": {
         "doctrine/dbal": "^2.9",
         "friendsofphp/php-cs-fixer": "^2.15",
-        "phpunit/phpunit": "^8.2",
-        "symfony/finder": "^4.3"
+        "symfony/finder": "^4.3",
+        "symfony/phpunit-bridge": "^4.3"
     },
     "config": {
         "preferred-install": {

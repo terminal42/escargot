@@ -30,4 +30,4 @@ before_script:
     - travis_wait composer update --no-interaction $COMPOSER_FLAGS
 
 script:
-    - php vendor/bin/phpunit
+    - php vendor/bin/simple-phpunit
