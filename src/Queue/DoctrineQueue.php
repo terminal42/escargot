@@ -134,9 +134,11 @@ class DoctrineQueue implements QueueInterface
                     'job_id' => ':jobId',
                     'uri' => ':uri',
                     'level' => ':level',
+                    'found_on' => ':foundOn',
                     'processed' => ':processed',
                 ])
-                ->setParameter(':level', (int) $crawlUri->getLevel(), Type::INTEGER);
+                ->setParameter(':level', (int) $crawlUri->getLevel(), Type::INTEGER)
+                ->setParameter(':foundOn', $crawlUri->getFoundOn(), Type::STRING);
         } else {
             $queryBuilder
                 ->update($this->tableName)
