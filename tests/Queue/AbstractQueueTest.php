@@ -61,7 +61,7 @@ abstract class AbstractQueueTest extends TestCase
         $this->assertNull($queue->getNext($jobId));
 
         // Now let's add the same URI multiple times
-        $foobarCrawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1);
+        $foobarCrawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, $baseCrawlUri->getUri());
         $queue->add($jobId, $foobarCrawlUri);
         $queue->add($jobId, $foobarCrawlUri);
         $queue->add($jobId, $foobarCrawlUri);
@@ -70,8 +70,10 @@ abstract class AbstractQueueTest extends TestCase
         $this->assertSame(2, $queue->countAll($jobId));
         $this->assertSame(1, $queue->countPending($jobId));
 
+        $this->assertSame((string) $foobarCrawlUri, (string) $queue->getNext($jobId));
+
         // Add another one just to see if the base URI is still returned correctly
-        $foobar2CrawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar2'), 2);
+        $foobar2CrawlUri = new CrawlUri(new Uri('https://www.terminal42.ch/foobar2'), 2, false, $baseCrawlUri->getUri());
         $queue->add($jobId, $foobar2CrawlUri);
 
         $this->assertSame((string) $baseUri, (string) $queue->getBaseUri($jobId));
