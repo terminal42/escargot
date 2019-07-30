@@ -34,14 +34,14 @@ class LoggerSubscriber implements EventSubscriberInterface
 
     public function onSuccessfulResponse(SuccessfulResponseEvent $event): void
     {
-        $this->logger->debug(sprintf('Successful request! %s',
+        $this->logger->notice(sprintf('Successful request! %s',
             (string) $event->getCrawlUri()
         ));
     }
 
     public function onFinishedCrawling(FinishedCrawlingEvent $event): void
     {
-        $this->logger->debug(sprintf('Finished crawling! Sent %s request(s).',
+        $this->logger->notice(sprintf('Finished crawling! Sent %s request(s).',
             $event->getEscargot()->getRequestsSent()
         ));
     }
