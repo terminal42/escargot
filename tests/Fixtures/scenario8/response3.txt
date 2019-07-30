@@ -1,0 +1,3 @@
+https://www.terminal42.ch/foobar
+
+HTTP/2.0 404 Not Found

@@ -19,6 +19,7 @@ use Terminal42\Escargot\Event\ExcludedByUriFilterEvent;
 use Terminal42\Escargot\Event\FinishedCrawlingEvent;
 use Terminal42\Escargot\Event\RequestExceptionEvent;
 use Terminal42\Escargot\Event\SuccessfulResponseEvent;
+use Terminal42\Escargot\Event\UnsuccessfulResponseEvent;
 
 class LoggerSubscriber implements EventSubscriberInterface
 {
@@ -46,9 +47,17 @@ class LoggerSubscriber implements EventSubscriberInterface
         ));
     }
 
+    public function onUnsuccessfulResponse(UnsuccessfulResponseEvent $event): void
+    {
+        $this->logger->debug(sprintf('The response to "%s" was not successful (Status code: %d)',
+            (string) $event->getCrawlUri()->getUri(),
+            $event->getResponse()->getStatusCode()
+        ));
+    }
+
     public function onRequestException(RequestExceptionEvent $event): void
     {
-        $this->logger->error('An error occured during a request.', ['exception' => $event->getException()]);
+        $this->logger->error('An error occurred during a request.', ['exception' => $event->getException()]);
     }
 
     public function onExcludedByUriFilter(ExcludedByUriFilterEvent $event): void
@@ -72,6 +81,7 @@ class LoggerSubscriber implements EventSubscriberInterface
     {
         return [
             SuccessfulResponseEvent::class => 'onSuccessfulResponse',
+            UnsuccessfulResponseEvent::class => 'onUnsuccessfulResponse',
             FinishedCrawlingEvent::class => 'onFinishedCrawling',
             RequestExceptionEvent::class => 'onRequestException',
             ExcludedByUriFilterEvent::class => 'onExcludedByUriFilter',

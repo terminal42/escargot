@@ -120,28 +120,36 @@ $escargot->crawl();
 You might be wondering how you can access the results of your crawl process. In Escargot, `crawl()` does not return
 anything but instead, everything is event based which lets you decide exactly on what you want to do with the results
 that are collected along the way.
-Currently there are `3` different core events:
+Currently there are `4` different core events:
 
 * `SuccessfulResponseEvent`
 
-  The probably most important event for you as it is dispatched whenever a response arrived successfully. You have
-  access to `Escargot` itself, the resulting instance of `ResponseInterface` and also the `CrawlUri` which contains
-  the URI that was crawled and the information on what level and on what URI it was found.
+  The probably most important event for you as it is dispatched whenever a response arrived successfully.
+  You have access to `Escargot` itself, the resulting instance of `ResponseInterface` and also the `CrawlUri` which
+  contains the URI that was crawled and the information on what level and on what URI it was found.
+
+* `UnsuccessfulResponseEvent`
+
+  This event is dispatched when a response was not successful. Not successful in that case means any response that
+  did not return the HTTP status code `200`. It's a good place to e.g. log dead links and more.
+  You have access to `Escargot` itself, the resulting instance of `ResponseInterface` and also the `CrawlUri` which
+  contains the URI that was crawled and the information on what level and on what URI it was found.
 
 * `FinishedCrawlingEvent`
 
   This event is dispatched when crawling has finished because either the maximum configured requests have been reached 
-  (see «Configuration») or the queue is empty, meaning there's nothing left to crawl. You have access to `Escargot` 
-  itself which e.g. allows you to ask for the total requests sent (`Escargot::getRequestsSent()`).
+  (see «Configuration») or the queue is empty, meaning there's nothing left to crawl.
+  You have access to `Escargot` itself which e.g. allows you to ask for the total requests sent
+  (`Escargot::getRequestsSent()`).
   
 * `RequestExceptionEvent`
 
-  This event is dispatched when a response was not successful. Not successful in that case means anything that's not
-  successful for Symfony's HttpClient. So anything that's not `200 OK` or responses that were cancelled early etc. will
-  end up here. It's a good place to e.g. log dead links and more. Apart from `Escargot` itself you have access to the
-  `ExceptionInterface` instance (so e.g. `TransportExceptionInterface` but also `ClientExceptionInterface` etc.)
-  and the `ResponseInterface` instance if there is any (if the exception occurs during initiation of the request,
-  there won't be any response).  
+  This event is dispatched when the Symfony HttpClient emits an exception.
+  Compared to the `UnsuccessfulResponseEvent` you probably do not even have a `ResponseInterface` with an HTTP response
+  status code other than `200`.
+  Apart from `Escargot` itself you have access to the `ExceptionInterface` instance (so e.g. `TransportExceptionInterface`
+  but also `ClientExceptionInterface` etc.) and the `ResponseInterface` instance if there is any (if the exception occurs
+  during initiation of the request, there won't be any response).  
 
 In addition to these events, there are `2` events that are dispatched when links were found on a site but Escargot did
 not follow them for different reasons:

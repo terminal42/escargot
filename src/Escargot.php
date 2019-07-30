@@ -31,6 +31,7 @@ use Terminal42\Escargot\Event\ExcludedByUriFilterEvent;
 use Terminal42\Escargot\Event\FinishedCrawlingEvent;
 use Terminal42\Escargot\Event\RequestExceptionEvent;
 use Terminal42\Escargot\Event\SuccessfulResponseEvent;
+use Terminal42\Escargot\Event\UnsuccessfulResponseEvent;
 use Terminal42\Escargot\Filter\DefaultUriFilter;
 use Terminal42\Escargot\Filter\UriFilterInterface;
 use Terminal42\Escargot\Queue\QueueInterface;
@@ -288,13 +289,21 @@ final class Escargot
         foreach ($this->getClient()->stream($responses) as $response => $chunk) {
             try {
                 if ($chunk->isFirst()) {
-                    // We're an HTML crawler, so we reject everything that's not text/html immediately
-                    if (200 !== $response->getStatusCode() ||
-                        !isset($response->getHeaders()['content-type'][0]) // TODO: should we extract the logic in some separate filter too?
-                        || false === strpos($response->getHeaders()['content-type'][0], 'text/html')
-                    ) {
+                    if (200 !== $response->getStatusCode()) {
                         --$this->runningRequests;
                         $response->cancel();
+                        $this->getEventDispatcher()->dispatch(new UnsuccessfulResponseEvent($this, $response));
+                        continue;
+                    }
+
+                    // We're an HTML crawler, so we reject everything that's not text/html immediately
+                    if (!isset($response->getHeaders()['content-type'][0])
+                        || false === strpos($response->getHeaders()['content-type'][0], 'text/html')
+                    ) {
+                        // TODO: another event?
+                        --$this->runningRequests;
+                        $response->cancel();
+                        continue;
                     }
                 }
 
@@ -306,15 +315,15 @@ final class Escargot
 
                     // Process
                     $this->processResponse($response);
-
-                    // And continue crawling
-                    $this->crawl();
                 }
             } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $e) {
                 --$this->runningRequests;
                 $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $e, $response));
             }
         }
+
+        // Continue crawling
+        $this->crawl();
     }
 
     private function prepareResponses(): array
