@@ -19,6 +19,7 @@ use Doctrine\DBAL\Schema\Synchronizer\SingleDatabaseSynchronizer;
 use Doctrine\DBAL\Types\Type;
 use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
+use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 
 class DoctrineQueue implements QueueInterface
@@ -51,11 +52,13 @@ class DoctrineQueue implements QueueInterface
         $this->schemaSynchronizer = $schemaSynchronizer ?? new SingleDatabaseSynchronizer($connection);
     }
 
-    public function createJobId(UriInterface $uri): string
+    public function createJobId(BaseUriCollection $baseUris): string
     {
         $jobId = $this->jobIdGenerator->__invoke();
 
-        $this->add($jobId, new CrawlUri($uri, 0));
+        foreach ($baseUris as $baseUri) {
+            $this->add($jobId, new CrawlUri($baseUri, 0));
+        }
 
         return $jobId;
     }
@@ -82,19 +85,25 @@ class DoctrineQueue implements QueueInterface
         $queryBuilder->execute();
     }
 
-    public function getBaseUri(string $jobId): UriInterface
+    public function getBaseUris(string $jobId): BaseUriCollection
     {
+        $baseUris = new BaseUriCollection();
+
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select('uri')
             ->from($this->tableName)
             ->where('job_id = :jobId')
-            ->orderBy('id', 'ASC')
+            ->andWhere('level = :level')
             ->setParameter(':jobId', $jobId, Type::STRING)
-            ->setMaxResults(1);
+            ->setParameter(':level', 0, Type::INTEGER);
 
-        $uri = (string) $queryBuilder->execute()->fetchColumn();
+        $uris = $queryBuilder->execute()->fetchAll(\PDO::FETCH_COLUMN);
 
-        return new Uri($uri);
+        foreach ($uris as $uri) {
+            $baseUris->add(new Uri($uri));
+        }
+
+        return $baseUris;
     }
 
     public function get(string $jobId, UriInterface $uri): ?CrawlUri
@@ -263,6 +272,7 @@ class DoctrineQueue implements QueueInterface
 
         $table->setPrimaryKey(['id']);
         $table->addIndex(['job_id']);
+        $table->addIndex(['level']);
         $table->addIndex(['uri']);
         $table->addIndex(['processed']);
 

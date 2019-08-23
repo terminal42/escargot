@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Queue;
 
 use Psr\Http\Message\UriInterface;
+use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 
 class InMemoryQueue implements QueueInterface
@@ -27,13 +28,15 @@ class InMemoryQueue implements QueueInterface
      */
     private $queue = [];
 
-    public function createJobId(UriInterface $baseUri): string
+    public function createJobId(BaseUriCollection $baseUris): string
     {
         $jobId = bin2hex(random_bytes(32));
 
-        $this->baseUris[$jobId] = $baseUri;
+        $this->baseUris[$jobId] = $baseUris;
 
-        $this->add($jobId, new CrawlUri($baseUri, 0));
+        foreach ($baseUris as $baseUri) {
+            $this->add($jobId, new CrawlUri($baseUri, 0));
+        }
 
         return $jobId;
     }
@@ -48,7 +51,7 @@ class InMemoryQueue implements QueueInterface
         unset($this->baseUris[$jobId], $this->queue[$jobId]);
     }
 
-    public function getBaseUri(string $jobId): UriInterface
+    public function getBaseUris(string $jobId): BaseUriCollection
     {
         return $this->baseUris[$jobId];
     }

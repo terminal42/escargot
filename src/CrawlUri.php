@@ -39,14 +39,17 @@ class CrawlUri
     /**
      * @var UriInterface|null
      */
-    private $foundOn;
+    private $foundOn = null;
 
     public function __construct(UriInterface $uri, int $level, bool $processed = false, UriInterface $foundOn = null)
     {
-        $this->uri = $uri;
+        $this->uri = static::normalizeUri($uri);
         $this->level = $level;
         $this->processed = $processed;
-        $this->foundOn = $foundOn;
+
+        if (null !== $foundOn) {
+            $this->foundOn = static::normalizeUri($foundOn);
+        }
     }
 
     public function __toString()
@@ -90,5 +93,18 @@ class CrawlUri
     public function getFoundOn(): ?UriInterface
     {
         return $this->foundOn;
+    }
+
+    public static function normalizeUri(UriInterface $uri): UriInterface
+    {
+        if ('' === $uri->getScheme()) {
+            $uri = $uri->withScheme('http');
+        }
+
+        if ('' === $uri->getPath()) {
+            $uri = $uri->withPath('/');
+        }
+
+        return $uri;
     }
 }

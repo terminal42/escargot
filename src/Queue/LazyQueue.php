@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Queue;
 
 use Psr\Http\Message\UriInterface;
+use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 
 class LazyQueue implements QueueInterface
@@ -43,10 +44,10 @@ class LazyQueue implements QueueInterface
         $this->secondaryQueue = $secondaryQueue;
     }
 
-    public function createJobId(UriInterface $baseUri): string
+    public function createJobId(BaseUriCollection $baseUris): string
     {
         // The job id must be taken from the secondary queue
-        return $this->secondaryQueue->createJobId($baseUri);
+        return $this->secondaryQueue->createJobId($baseUris);
     }
 
     public function isJobIdValid(string $jobId): bool
@@ -62,10 +63,10 @@ class LazyQueue implements QueueInterface
         $this->primaryQueue->deleteJobId($this->getJobIdFromSecondaryJobId($jobId));
     }
 
-    public function getBaseUri(string $jobId): UriInterface
+    public function getBaseUris(string $jobId): BaseUriCollection
     {
         // Must be present in our primary queue as well
-        return $this->primaryQueue->getBaseUri($this->getJobIdFromSecondaryJobId($jobId));
+        return $this->primaryQueue->getBaseUris($this->getJobIdFromSecondaryJobId($jobId));
     }
 
     public function get(string $jobId, UriInterface $uri): ?CrawlUri
@@ -154,16 +155,19 @@ class LazyQueue implements QueueInterface
             return $this->jobIdMapper[$jobId];
         }
 
-        $baseUri = $this->secondaryQueue->getBaseUri($jobId);
-        $primaryJobId = $this->primaryQueue->createJobId($baseUri);
-        $primaryBaseCrawlUri = $this->primaryQueue->get($primaryJobId, $baseUri);
+        $baseUris = $this->secondaryQueue->getBaseUris($jobId);
+        $primaryJobId = $this->primaryQueue->createJobId($baseUris);
 
-        // Mark the base URI processed if it already is
-        $baseCrawlUri = $this->secondaryQueue->get($jobId, $baseUri);
+        foreach ($baseUris as $baseUri) {
+            $primaryBaseCrawlUri = $this->primaryQueue->get($primaryJobId, $baseUri);
 
-        if ($baseCrawlUri->isProcessed()) {
-            $primaryBaseCrawlUri->markProcessed();
-            $this->primaryQueue->add($primaryJobId, $primaryBaseCrawlUri);
+            // Mark the base URI processed if it already is
+            $baseCrawlUri = $this->secondaryQueue->get($jobId, $baseUri);
+
+            if ($baseCrawlUri->isProcessed()) {
+                $primaryBaseCrawlUri->markProcessed();
+                $this->primaryQueue->add($primaryJobId, $primaryBaseCrawlUri);
+            }
         }
 
         return $this->jobIdMapper[$jobId] = $primaryJobId;

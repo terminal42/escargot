@@ -13,7 +13,6 @@ declare(strict_types=1);
 namespace Terminal42\Escargot;
 
 use Nyholm\Psr7\Uri;
-use Psr\Http\Message\UriInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Link;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -51,9 +50,9 @@ final class Escargot
     private $jobId;
 
     /**
-     * @var UriInterface
+     * @var BaseUriCollection
      */
-    private $baseUri;
+    private $baseUris;
 
     /**
      * @var HttpClientInterface|null
@@ -115,12 +114,12 @@ final class Escargot
      */
     private $runningRequests = 0;
 
-    private function __construct(QueueInterface $queue, string $jobId, UriInterface $baseUri, HttpClientInterface $client = null)
+    private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris, HttpClientInterface $client = null)
     {
         $this->client = $client;
         $this->queue = $queue;
         $this->jobId = $jobId;
-        $this->baseUri = $baseUri;
+        $this->baseUris = $baseUris;
     }
 
     public function setEventDispatcher(EventDispatcherInterface $eventDispatcher): self
@@ -210,9 +209,9 @@ final class Escargot
         return $this->jobId;
     }
 
-    public function getBaseUri(): UriInterface
+    public function getBaseUris(): BaseUriCollection
     {
-        return $this->baseUri;
+        return $this->baseUris;
     }
 
     public function getMaxRequests(): int
@@ -244,27 +243,19 @@ final class Escargot
         return new self(
             $queue,
             $jobId,
-            $queue->getBaseUri($jobId),
+            $queue->getBaseUris($jobId),
             $client
         );
     }
 
-    public static function createWithNewJobId(UriInterface $baseUri, QueueInterface $queue, HttpClientInterface $client = null): self
+    public static function createWithNewJobId(BaseUriCollection $baseUris, QueueInterface $queue, HttpClientInterface $client = null): self
     {
-        if ('' === $baseUri->getScheme()) {
-            $baseUri = $baseUri->withScheme('http');
-        }
-
-        if ('' === $baseUri->getPath()) {
-            $baseUri = $baseUri->withPath('/');
-        }
-
-        $jobId = $queue->createJobId($baseUri);
+        $jobId = $queue->createJobId($baseUris);
 
         return new self(
             $queue,
             $jobId,
-            $baseUri,
+            $baseUris,
             $client
         );
     }
@@ -404,7 +395,7 @@ final class Escargot
         // Now crawl for links
         $linkCrawler = $crawler->filter('a');
         foreach ($linkCrawler as $node) {
-            $link = new Link($node, (string) $this->baseUri);
+            $link = new Link($node, (string) $currentCrawlUri->getUri());
             $uri = new Uri($link->getUri());
 
             // Make sure we ignore fragment links

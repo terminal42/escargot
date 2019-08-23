@@ -20,6 +20,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\Escargot;
 use Terminal42\Escargot\EventSubscriber\LoggerSubscriber;
 use Terminal42\Escargot\Filter\DefaultUriFilter;
@@ -31,10 +32,11 @@ class EscargotTest extends TestCase
 {
     public function testDefaults(): void
     {
-        $baseUri = new Uri('https://www.terminal42.ch');
+        $baseUris = new BaseUriCollection();
+        $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUri, $queue);
+        $escargot = Escargot::createWithNewJobId($baseUris, $queue);
 
         $this->assertInstanceOf(InMemoryQueue::class, $escargot->getQueue());
         $this->assertInstanceOf(EventDispatcher::class, $escargot->getEventDispatcher());
@@ -50,10 +52,11 @@ class EscargotTest extends TestCase
 
     public function testSetters(): void
     {
-        $baseUri = new Uri('https://www.terminal42.ch');
+        $baseUris = new BaseUriCollection();
+        $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUri, $queue);
+        $escargot = Escargot::createWithNewJobId($baseUris, $queue);
 
         $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
         $uriFilter = $this->createMock(UriFilterInterface::class);
@@ -73,15 +76,16 @@ class EscargotTest extends TestCase
 
     public function testFactories(): void
     {
-        $baseUri = new Uri('https://www.terminal42.ch');
+        $baseUris = new BaseUriCollection();
+        $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUri, $queue);
+        $escargot = Escargot::createWithNewJobId($baseUris, $queue);
 
         $this->assertNotEmpty($escargot->getJobId());
         $this->assertSame($queue, $escargot->getQueue());
 
-        $jobId = $queue->createJobId($baseUri);
+        $jobId = $queue->createJobId($baseUris);
 
         $escargot = Escargot::createFromExistingJobId($jobId, $queue);
 
@@ -103,10 +107,12 @@ class EscargotTest extends TestCase
      */
     public function testCrawl(\Closure $responseFactory, array $expectedLogs, string $message, $options = []): void
     {
-        $baseUri = new Uri('https://www.terminal42.ch');
+        $baseUris = new BaseUriCollection();
+        $baseUris->add(new Uri('https://www.terminal42.ch'));
+
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUri, $queue, new MockHttpClient($responseFactory));
+        $escargot = Escargot::createWithNewJobId($baseUris, $queue, new MockHttpClient($responseFactory));
 
         if (0 !== \count($options)) {
             if (isset($options['max_requests'])) {

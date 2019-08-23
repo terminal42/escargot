@@ -43,7 +43,9 @@ class DefaultUriFilter implements UriFilterInterface
         $this->crawler = $crawler;
 
         if (0 === \count($allowedHosts)) {
-            $this->allowedHosts = [$crawler->getBaseUri()->getHost()];
+            foreach ($crawler->getBaseUris() as $baseUri) {
+                $this->allowedHosts[] = $baseUri->getHost();
+            }
         }
     }
 

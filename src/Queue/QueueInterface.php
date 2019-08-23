@@ -13,17 +13,19 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Queue;
 
 use Psr\Http\Message\UriInterface;
+use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 
 interface QueueInterface
 {
     /**
-     * Creates a new job ID. This ID has to be unique.
-     * The queue implementation MUST also add the
-     * provided $baseUri to the queue and NOT mark
-     * as processed.
+     * Creates a new job ID. This ID has to be unique
+     * and not exceed 128 characters.
+     * The queue implementation MUST also add all
+     * provided $baseUris to the queue and mark them
+     * as NOT processed.
      */
-    public function createJobId(UriInterface $baseUri): string;
+    public function createJobId(BaseUriCollection $baseUris): string;
 
     /**
      * Validate if a job ID is still valid.
@@ -39,9 +41,9 @@ interface QueueInterface
 
     /**
      * To pick up a job later on, the queue has to be able
-     * to return the base URI the job was created with.
+     * to return the base URI collectoin the job was created with.
      */
-    public function getBaseUri(string $jobId): UriInterface;
+    public function getBaseUris(string $jobId): BaseUriCollection;
 
     /**
      * Returns a CrawlUri for a given UriInterface if already

@@ -5,7 +5,7 @@
 A library that provides everything you need to crawl your website and process the responses in whatever way you
 prefer based on Symfony components.
 
-### Why another crawler?
+### Why yet another crawler?
 
 There are so many different implementations in so many programming languages, right?
 Well, the ones I found in PHP did not really live up to my personal quality standards and also I wanted something
@@ -32,7 +32,7 @@ composer require terminal42/escargot
 
 Everything in Escargot is assigned to a job ID. The reason for this design is that crawling huge sites can take very
 long and chances that you'll want to stop at some point and pick up where you left are pretty high.
-For that matter, every `Escargot` instance also needs a queue plus a base URI as to where to start crawling.
+For that matter, every `Escargot` instance also needs a queue plus a base URI collection as to where to start crawling.
 Of course, because we execute requests, we can also provide an instance of `Symfony\Component\HttpClient\HttpClientInterface`
 but that's completely optional. If you do not provide any client, `HttpClient::create()` will be used and the best
 client is automatically chosen for you.
@@ -45,13 +45,15 @@ The factory method when you do not have a job ID yet has to be used as follows:
 <?php
 
 use Nyholm\Psr7\Uri;
+use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\Escargot;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 
-$baseUri = new Uri('https://www.terminal42.ch');
+$baseUris = new BaseUriCollection();
+$baseUris->add(new Uri('https://www.terminal42.ch'));
 $queue = new InMemoryQueue();
         
-$escargot = Escargot::createWithNewJobId($baseUri, $queue);
+$escargot = Escargot::createWithNewJobId($baseUris, $queue);
 ```
 
 If you want to use a special `HttpClientInterface` implementation, you can provide this as third parameter
@@ -62,17 +64,19 @@ like so:
 
 use Nyholm\Psr7\Uri;
 use Symfony\Component\HttpClient\CurlHttpClient;
+use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\Escargot;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 
-$baseUri = new Uri('https://www.terminal42.ch');
+$baseUris = new BaseUriCollection();
+$baseUris->add(new Uri('https://www.terminal42.ch'));
 $queue = new InMemoryQueue();
 $client = new CurlHttpClient(['custom' => 'options']);
         
-$escargot = Escargot::createWithNewJobId($baseUri, $queue, $client);
+$escargot = Escargot::createWithNewJobId($baseUris, $queue, $client);
 ```
 
-In case you already do have a job ID because you have initiated crawling previously we do not need any base URI
+In case you already do have a job ID because you have initiated crawling previously we do not need any base URI collection
 anymore but the job ID instead (again `$client` is completely optional):
 
 ```php
@@ -195,8 +199,8 @@ There are different configurations you can apply to the `Escargot` instance:
    
 * `Escargot::setMaxDepth(int $maxDepth)`
 
-   Lets you configure the maximum depth Escargot will crawl. Your base URI equals to level `0` and from there on
-   the level is increased.   
+   Lets you configure the maximum depth Escargot will crawl. Your URIs in your base URI collection all equal to level `0`
+   and from there on the level is increased.   
    
 * `Escargot::setRequestDelay(int $requestDelay)`
 
@@ -211,7 +215,7 @@ There are different configurations you can apply to the `Escargot` instance:
     * Either `http` or `https` schema
     * The node does not have `rel="nofollow"` set
     * The node does not have the type attribute set or it is set and the value equals to `text/html`
-    * The URI is allowed by the configured allowed hosts (by default just the same host as the base URI)
+    * The URI is allowed by the configured allowed hosts (by default just the same as one of the base URI collection hosts)
     
    By providing your own implementation of the `UriFilterInterface` you can completely customize the filtering
    to your needs.
