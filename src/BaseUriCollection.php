@@ -14,7 +14,7 @@ namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
 
-class BaseUriCollection implements \IteratorAggregate
+class BaseUriCollection implements \IteratorAggregate, \Countable
 {
     /**
      * @var UriInterface[]
@@ -44,6 +44,21 @@ class BaseUriCollection implements \IteratorAggregate
         return isset($this->baseUris[(string) $baseUri]);
     }
 
+    public function mergeWith(self $collection): self
+    {
+        $merged = new self();
+
+        foreach ($this as $baseUri) {
+            $merged->add($baseUri);
+        }
+
+        foreach ($collection as $baseUri) {
+            $merged->add($baseUri);
+        }
+
+        return $merged;
+    }
+
     /**
      * @return UriInterface[]
      */
@@ -58,5 +73,13 @@ class BaseUriCollection implements \IteratorAggregate
     public function getIterator()
     {
         return new \ArrayIterator($this->all());
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function count()
+    {
+        return \count($this->all());
     }
 }
