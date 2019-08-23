@@ -234,7 +234,7 @@ final class Escargot
         return $this->requestsSent;
     }
 
-    public static function createFromExistingJobId(string $jobId, QueueInterface $queue, HttpClientInterface $client = null): self
+    public static function createFromJobId(string $jobId, QueueInterface $queue, HttpClientInterface $client = null): self
     {
         if (!$queue->isJobIdValid($jobId)) {
             throw new \InvalidArgumentException(sprintf('Job ID "%s" is invalid!', $jobId));
@@ -248,7 +248,7 @@ final class Escargot
         );
     }
 
-    public static function createWithNewJobId(BaseUriCollection $baseUris, QueueInterface $queue, HttpClientInterface $client = null): self
+    public static function create(BaseUriCollection $baseUris, QueueInterface $queue, HttpClientInterface $client = null): self
     {
         $jobId = $queue->createJobId($baseUris);
 

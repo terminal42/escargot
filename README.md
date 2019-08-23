@@ -53,7 +53,7 @@ $baseUris = new BaseUriCollection();
 $baseUris->add(new Uri('https://www.terminal42.ch'));
 $queue = new InMemoryQueue();
         
-$escargot = Escargot::createWithNewJobId($baseUris, $queue);
+$escargot = Escargot::create($baseUris, $queue);
 ```
 
 If you want to use a special `HttpClientInterface` implementation, you can provide this as third parameter
@@ -73,7 +73,7 @@ $baseUris->add(new Uri('https://www.terminal42.ch'));
 $queue = new InMemoryQueue();
 $client = new CurlHttpClient(['custom' => 'options']);
         
-$escargot = Escargot::createWithNewJobId($baseUris, $queue, $client);
+$escargot = Escargot::create($baseUris, $queue, $client);
 ```
 
 In case you already do have a job ID because you have initiated crawling previously we do not need any base URI collection
@@ -89,7 +89,7 @@ use Terminal42\Escargot\Queue\InMemoryQueue;
 $queue = new InMemoryQueue();
 $client = new CurlHttpClient(['custom' => 'options']); // optional
         
-$escargot = Escargot::createFromExistingJobId($jobId, $queue, $client);
+$escargot = Escargot::createFromJobId($jobId, $queue, $client);
 ```
    
 ### The different queue implementations

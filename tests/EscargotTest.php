@@ -36,7 +36,7 @@ class EscargotTest extends TestCase
         $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUris, $queue);
+        $escargot = Escargot::create($baseUris, $queue);
 
         $this->assertInstanceOf(InMemoryQueue::class, $escargot->getQueue());
         $this->assertInstanceOf(EventDispatcher::class, $escargot->getEventDispatcher());
@@ -56,7 +56,7 @@ class EscargotTest extends TestCase
         $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUris, $queue);
+        $escargot = Escargot::create($baseUris, $queue);
 
         $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
         $uriFilter = $this->createMock(UriFilterInterface::class);
@@ -80,14 +80,14 @@ class EscargotTest extends TestCase
         $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUris, $queue);
+        $escargot = Escargot::create($baseUris, $queue);
 
         $this->assertNotEmpty($escargot->getJobId());
         $this->assertSame($queue, $escargot->getQueue());
 
         $jobId = $queue->createJobId($baseUris);
 
-        $escargot = Escargot::createFromExistingJobId($jobId, $queue);
+        $escargot = Escargot::createFromJobId($jobId, $queue);
 
         $this->assertSame($jobId, $escargot->getJobId());
         $this->assertSame($queue, $escargot->getQueue());
@@ -99,7 +99,7 @@ class EscargotTest extends TestCase
         $this->expectExceptionMessage('Job ID "foobar" is invalid!');
 
         $queue = new InMemoryQueue();
-        Escargot::createFromExistingJobId('foobar', $queue);
+        Escargot::createFromJobId('foobar', $queue);
     }
 
     /**
@@ -112,7 +112,7 @@ class EscargotTest extends TestCase
 
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::createWithNewJobId($baseUris, $queue, new MockHttpClient($responseFactory));
+        $escargot = Escargot::create($baseUris, $queue, new MockHttpClient($responseFactory));
 
         if (0 !== \count($options)) {
             if (isset($options['max_requests'])) {

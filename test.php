@@ -27,7 +27,7 @@ $queue = new LazyQueue(new InMemoryQueue(), $queue);
 
 //$queue->createSchema();
 
-$escargot = Escargot::createWithNewJobId($baseUri, $queue);
+$escargot = Escargot::create($baseUri, $queue);
 //$escargot = Escargot::createFromExistingJobId('foobar', $queue);
 
 //$escargot->setMaxRequests(5);
