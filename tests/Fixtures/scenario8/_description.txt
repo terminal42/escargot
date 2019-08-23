@@ -1,1 +1,0 @@
-Here we test if the response is correctly cancelled when it does not return 200 OK.

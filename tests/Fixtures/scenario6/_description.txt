@@ -1,3 +1,2 @@
 This scenario tests if we're correctly NOT following the third request.
-The first one is level 0, the second one is level 1 and as we configured maxDepth to be 1, there should be no
-further requests.
+This is because we set maxRequests to be 2.

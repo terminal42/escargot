@@ -5,7 +5,6 @@ content-type: text/html; charset=UTF-8
 
 <html>
 <head>
-    <meta name="robots" content="nofollow">
 </head>
 <body>
     <a href="https://www.terminal42.ch/foobar">

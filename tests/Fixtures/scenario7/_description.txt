@@ -1,2 +1,1 @@
-This scenario tests if we're correctly NOT following the third request.
-This is because we set maxRequests to be 2.
+Here we test if the response is correctly cancelled when it does not return 200 OK.

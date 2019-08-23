@@ -212,7 +212,6 @@ There are different configurations you can apply to the `Escargot` instance:
     * The node does not have `rel="nofollow"` set
     * The node does not have the type attribute set or it is set and the value equals to `text/html`
     * The URI is allowed by the configured allowed hosts (by default just the same host as the base URI)
-    * The URI is allowed by the `robots.txt` of that URI
     
    By providing your own implementation of the `UriFilterInterface` you can completely customize the filtering
    to your needs.

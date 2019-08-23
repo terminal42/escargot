@@ -142,7 +142,7 @@ final class Escargot
     public function getUriFilter(): UriFilterInterface
     {
         if (null === $this->uriFilter) {
-            $this->uriFilter = new DefaultUriFilter($this, self::DEFAULT_USER_AGENT);
+            $this->uriFilter = new DefaultUriFilter($this);
         }
 
         return $this->uriFilter;

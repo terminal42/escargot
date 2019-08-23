@@ -1,2 +1,2 @@
 This scenario tests if we're correctly following the second request.
-It is allowed because no special instructions (nofollow, meta tags, robots.txt) were given.
+It is allowed because no special instructions (nofollow, meta tags) were given.

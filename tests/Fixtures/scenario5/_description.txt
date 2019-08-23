@@ -1,2 +1,3 @@
-This scenario tests if we're correctly NOT following the second request.
-It is disallowed by the <meta name="robots"> tag.
+This scenario tests if we're correctly NOT following the third request.
+The first one is level 0, the second one is level 1 and as we configured maxDepth to be 1, there should be no
+further requests.

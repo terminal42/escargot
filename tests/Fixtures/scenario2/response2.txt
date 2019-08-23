@@ -1,3 +1,11 @@
-https://www.terminal42.ch/robots.txt
+https://www.terminal42.ch/foobar
 
-HTTP/2.0 404 Not Found
+HTTP/2.0 200 OK
+content-type: text/html; charset=UTF-8
+
+<html>
+    <head>
+    </head>
+    <body>
+    </body>
+</html>
