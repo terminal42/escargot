@@ -31,6 +31,7 @@ use Terminal42\Escargot\Event\FinishedCrawlingEvent;
 use Terminal42\Escargot\Event\RequestExceptionEvent;
 use Terminal42\Escargot\Event\SuccessfulResponseEvent;
 use Terminal42\Escargot\Event\UnsuccessfulResponseEvent;
+use Terminal42\Escargot\Exception\InvalidJobIdException;
 use Terminal42\Escargot\Filter\DefaultUriFilter;
 use Terminal42\Escargot\Filter\UriFilterInterface;
 use Terminal42\Escargot\Queue\QueueInterface;
@@ -234,10 +235,13 @@ final class Escargot
         return $this->requestsSent;
     }
 
+    /**
+     * @throws InvalidJobIdException if the provided job ID could not be retrieved by the queue
+     */
     public static function createFromJobId(string $jobId, QueueInterface $queue, HttpClientInterface $client = null): self
     {
         if (!$queue->isJobIdValid($jobId)) {
-            throw new \InvalidArgumentException(sprintf('Job ID "%s" is invalid!', $jobId));
+            throw new InvalidJobIdException(sprintf('Job ID "%s" is invalid!', $jobId));
         }
 
         return new self(
