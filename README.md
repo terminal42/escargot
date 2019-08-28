@@ -188,6 +188,12 @@ reference.
 
 There are different configurations you can apply to the `Escargot` instance:
 
+* `Escargot::setIncludeSitemaps(bool $includeSitemaps)`
+
+   By default, Escargot requests and checks the `robots.txt` file for every base URI. It will check for `Sitemap: `
+   entries, request those and add the discovered URIs to the queue. You can disable this feature by calling
+   `Escargot::setIncludeSitemaps(false);`.
+
 * `Escargot::setMaxRequests(int $maxRequests)`
 
    Lets you allow the maximum total requests that are going to be executed. It can be useful if you have limited

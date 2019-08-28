@@ -115,11 +115,14 @@ class EscargotTest extends TestCase
         $escargot = Escargot::create($baseUris, $queue, new MockHttpClient($responseFactory));
 
         if (0 !== \count($options)) {
-            if (isset($options['max_requests'])) {
+            if (\array_key_exists('max_requests', $options)) {
                 $escargot->setMaxRequests((int) $options['max_requests']);
             }
-            if (isset($options['max_depth'])) {
+            if (\array_key_exists('max_depth', $options)) {
                 $escargot->setMaxDepth((int) $options['max_depth']);
+            }
+            if (\array_key_exists('include_sitemaps', $options)) {
+                $escargot->setIncludeSitemaps('false' === $options['include_sitemaps'] ? false : true);
             }
         }
 

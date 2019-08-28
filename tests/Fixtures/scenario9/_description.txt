@@ -1,0 +1,1 @@
+Here we test if the sitemap data of the robots.txt is ignored if sitemap processing is disabled

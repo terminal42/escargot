@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Terminal42\Escargot;
 
 use Nyholm\Psr7\Uri;
+use Psr\Http\Message\UriInterface;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Link;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -69,6 +70,16 @@ final class Escargot
      * @var UriFilterInterface|null
      */
     private $uriFilter;
+
+    /**
+     * Whether or not to request
+     * the robots.txt and include
+     * URIs found in the sitemaps.
+     * Enabled by default.
+     *
+     * @var bool
+     */
+    private $includeSitemaps = true;
 
     /**
      * Maximum number of requests
@@ -151,6 +162,18 @@ final class Escargot
     public function setUriFilter(UriFilterInterface $uriFilter): self
     {
         $this->uriFilter = $uriFilter;
+
+        return $this;
+    }
+
+    public function includeSitemaps(): bool
+    {
+        return $this->includeSitemaps;
+    }
+
+    public function setIncludeSitemaps(bool $includeSitemaps): self
+    {
+        $this->includeSitemaps = $includeSitemaps;
 
         return $this;
     }
@@ -343,6 +366,11 @@ final class Escargot
                 usleep($this->requestDelay);
             }
 
+            // If this is a base URI we check the robots.txt for sitemap entries if enabled
+            if ($this->includeSitemaps() && 0 === $crawlUri->getLevel()) {
+                $this->handleSitemap($crawlUri->getUri());
+            }
+
             try {
                 $responses[] = $this->getClient()->request('GET', (string) $crawlUri->getUri(), [
                     'user_data' => $crawlUri,
@@ -357,6 +385,55 @@ final class Escargot
         }
 
         return $responses;
+    }
+
+    private function handleSitemap(UriInterface $uri): void
+    {
+        // Make sure we get the correct URI to the robots.txt
+        $uri = $uri->withPath('/robots.txt')->withFragment('')->withQuery('');
+
+        try {
+            $response = $this->getClient()->request('GET', (string) $uri);
+        } catch (TransportExceptionInterface $e) {
+            // TODO: event?
+            return;
+        }
+
+        if (null === $response || 200 !== $response->getStatusCode()) {
+            return;
+        }
+
+        $robotsTxtContent = $response->getContent();
+        $foundOn = new CrawlUri($uri, 1, true); // Level 1 because 0 is the base URI and 1 is the robots.txt
+
+        // Extract sitemaps
+        foreach (explode("\n", $robotsTxtContent) as $line) {
+            $line = trim($line);
+
+            if (0 !== substr_compare($line, 'Sitemap:', 0, 8, true)) {
+                continue;
+            }
+
+            // Get URI and request
+            $sitemapUri = trim(substr($line, 8));
+
+            try {
+                $response = $this->getClient()->request('GET', $sitemapUri);
+            } catch (TransportExceptionInterface $e) {
+                continue;
+            }
+
+            if (null === $response || 200 !== $response->getStatusCode()) {
+                continue;
+            }
+
+            $urls = new \SimpleXMLElement($response->getContent());
+
+            foreach ($urls as $url) {
+                // Add it to the queue if not present already
+                $this->addUriToQueue(new Uri((string) $url->loc), $foundOn);
+            }
+        }
     }
 
     private function isMaxRequestsReached(): bool
@@ -418,11 +495,19 @@ final class Escargot
             }
 
             // Add it to the queue if not present already
-            $crawlUrl = $this->queue->get($this->jobId, $uri);
-            if (null === $crawlUrl) {
-                $crawlUrl = new CrawlUri($uri, $currentCrawlUri->getLevel() + 1, false, $currentCrawlUri->getUri());
-                $this->queue->add($this->jobId, $crawlUrl);
-            }
+            $this->addUriToQueue($uri, $currentCrawlUri);
+        }
+    }
+
+    /**
+     * Adds an URI to the queue if not present already.
+     */
+    private function addUriToQueue(UriInterface $uri, CrawlUri $foundOn): void
+    {
+        $crawlUrl = $this->queue->get($this->jobId, $uri);
+        if (null === $crawlUrl) {
+            $crawlUrl = new CrawlUri($uri, $foundOn->getLevel() + 1, false, $foundOn->getUri());
+            $this->queue->add($this->jobId, $crawlUrl);
         }
     }
 }
