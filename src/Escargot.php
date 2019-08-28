@@ -410,7 +410,7 @@ final class Escargot
         foreach (explode("\n", $robotsTxtContent) as $line) {
             $line = trim($line);
 
-            if (0 !== substr_compare($line, 'Sitemap:', 0, 8, true)) {
+            if (\strlen($line) < 8 || 0 !== substr_compare($line, 'Sitemap:', 0, 8, true)) {
                 continue;
             }
 
