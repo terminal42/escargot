@@ -277,6 +277,10 @@ final class Escargot
 
     public static function create(BaseUriCollection $baseUris, QueueInterface $queue, HttpClientInterface $client = null): self
     {
+        if (0 === \count($baseUris)) {
+            throw new InvalidJobIdException('Cannot create an Escargot instance with an empty BaseUriCollection!');
+        }
+
         $jobId = $queue->createJobId($baseUris);
 
         return new self(

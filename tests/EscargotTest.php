@@ -74,6 +74,17 @@ class EscargotTest extends TestCase
         $this->assertSame($uriFilter, $escargot->getUriFilter());
     }
 
+    public function testEmptyBaseUriCollection(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Cannot create an Escargot instance with an empty BaseUriCollection!');
+
+        $baseUris = new BaseUriCollection();
+        $queue = new InMemoryQueue();
+
+        $escargot = Escargot::create($baseUris, $queue);
+    }
+
     public function testFactories(): void
     {
         $baseUris = new BaseUriCollection();
