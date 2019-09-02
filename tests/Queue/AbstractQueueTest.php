@@ -115,5 +115,9 @@ abstract class AbstractQueueTest extends TestCase
         $this->assertSame((string) $foobar2CrawlUri, (string) $queue->getNext($jobId, 1));
         $this->assertNull($queue->getNext($jobId, 2));
         $this->assertNull($queue->getNext($jobId, 50));
+
+        // Test delete
+        $queue->deleteJobId($jobId);
+        $this->assertFalse($queue->isJobIdValid($jobId));
     }
 }

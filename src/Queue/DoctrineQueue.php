@@ -78,9 +78,9 @@ class DoctrineQueue implements QueueInterface
     public function deleteJobId(string $jobId): void
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->delete()
-            ->from($this->tableName)
-            ->where('job_id = :jobId');
+            ->delete($this->tableName)
+            ->where('job_id = :jobId')
+            ->setParameter(':jobId', $jobId, Type::STRING);
 
         $queryBuilder->execute();
     }
