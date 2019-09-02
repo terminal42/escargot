@@ -58,6 +58,11 @@ class Scenario
         $this->build();
     }
 
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
     public function getArgumentsForCrawlProvider(): array
     {
         return [

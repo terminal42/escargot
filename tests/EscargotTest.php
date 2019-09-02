@@ -162,7 +162,7 @@ class EscargotTest extends TestCase
         foreach ($finder as $scenarioDir) {
             $scenario = new Scenario(ucfirst($scenarioDir->getBasename('.txt')), $scenarioDir->getPathname());
 
-            yield $scenario->getArgumentsForCrawlProvider();
+            yield $scenario->getName() => $scenario->getArgumentsForCrawlProvider();
         }
     }
 }

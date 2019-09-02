@@ -488,30 +488,47 @@ final class Escargot
 
             // Filtered by <meta name="robots" content="nofollow">
             if ($robotsMetaNofollow) {
-                $this->getEventDispatcher()->dispatch(new ExcludedByRobotsMetaTagEvent($this, $uri));
+                // Add it to the queue and mark processed so the event is only dispatched once per URI
+                $wasAdded = $this->addUriToQueue($uri, $currentCrawlUri, true);
+                if ($wasAdded) {
+                    $this->getEventDispatcher()->dispatch(new ExcludedByRobotsMetaTagEvent($this, $uri));
+                }
                 continue;
             }
 
             // Ask the URI filter if we should even crawl that URI
             if (!$this->getUriFilter()->shouldCrawl($uri, $node)) {
-                $this->getEventDispatcher()->dispatch(new ExcludedByUriFilterEvent($this, $uri, $node));
+                // Add it to the queue and mark processed so the event is only dispatched once per URI
+                $wasAdded = $this->addUriToQueue($uri, $currentCrawlUri, true);
+
+                // Only dispatch event once per URI
+                if ($wasAdded) {
+                    $this->getEventDispatcher()->dispatch(new ExcludedByUriFilterEvent($this, $uri, $node));
+                }
+
                 continue;
             }
 
-            // Add it to the queue if not present already
+            // Mark URI to process
             $this->addUriToQueue($uri, $currentCrawlUri);
         }
     }
 
     /**
      * Adds an URI to the queue if not present already.
+     *
+     * @return bool True if it was added and false if it existed already before
      */
-    private function addUriToQueue(UriInterface $uri, CrawlUri $foundOn): void
+    private function addUriToQueue(UriInterface $uri, CrawlUri $foundOn, bool $processed = false): bool
     {
         $crawlUrl = $this->queue->get($this->jobId, $uri);
         if (null === $crawlUrl) {
-            $crawlUrl = new CrawlUri($uri, $foundOn->getLevel() + 1, false, $foundOn->getUri());
+            $crawlUrl = new CrawlUri($uri, $foundOn->getLevel() + 1, $processed, $foundOn->getUri());
             $this->queue->add($this->jobId, $crawlUrl);
+
+            return true;
         }
+
+        return false;
     }
 }

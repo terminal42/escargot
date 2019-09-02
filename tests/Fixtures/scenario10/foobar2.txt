@@ -1,0 +1,12 @@
+https://www.terminal42.ch/foobar2
+
+HTTP/2.0 200 OK
+content-type: text/html; charset=UTF-8
+
+<html>
+<head>
+</head>
+<body>
+    <a rel="nofollow" href="https://www.terminal42.ch/foobar3">
+</body>
+</html>
