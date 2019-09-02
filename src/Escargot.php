@@ -480,11 +480,11 @@ final class Escargot
         // Now crawl for links
         $linkCrawler = $crawler->filter('a');
         foreach ($linkCrawler as $node) {
-            $link = new Link($node, (string) $currentCrawlUri->getUri());
+            $link = new Link($node, (string) $currentCrawlUri->getUri()->withPath('')->withQuery('')->withFragment(''));
             $uri = new Uri($link->getUri());
 
-            // Make sure we ignore fragment links
-            $uri = $uri->withFragment('');
+            // Normalize uri
+            $uri = CrawlUri::normalizeUri($uri);
 
             // Filtered by <meta name="robots" content="nofollow">
             if ($robotsMetaNofollow) {

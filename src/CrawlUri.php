@@ -105,6 +105,8 @@ class CrawlUri
             $uri = $uri->withPath('/');
         }
 
+        $uri = $uri->withFragment('');
+
         return $uri;
     }
 }
