@@ -12,10 +12,11 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot;
 
-use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
-use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Component\DomCrawler\Link;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -25,20 +26,17 @@ use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Contracts\HttpClient\ResponseInterface;
-use Terminal42\Escargot\Event\ExcludedByRobotsMetaTagEvent;
-use Terminal42\Escargot\Event\ExcludedByUriFilterEvent;
 use Terminal42\Escargot\Event\FinishedCrawlingEvent;
+use Terminal42\Escargot\Event\PreRequestEvent;
 use Terminal42\Escargot\Event\RequestExceptionEvent;
-use Terminal42\Escargot\Event\SuccessfulResponseEvent;
-use Terminal42\Escargot\Event\UnsuccessfulResponseEvent;
+use Terminal42\Escargot\Event\ResponseEvent;
 use Terminal42\Escargot\Exception\InvalidJobIdException;
-use Terminal42\Escargot\Filter\DefaultUriFilter;
-use Terminal42\Escargot\Filter\UriFilterInterface;
 use Terminal42\Escargot\Queue\QueueInterface;
 
-final class Escargot
+final class Escargot implements LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     private const DEFAULT_USER_AGENT = 'terminal42/escargot';
 
     /**
@@ -67,19 +65,9 @@ final class Escargot
     private $eventDispatcher;
 
     /**
-     * @var UriFilterInterface|null
+     * @var string
      */
-    private $uriFilter;
-
-    /**
-     * Whether or not to request
-     * the robots.txt and include
-     * URIs found in the sitemaps.
-     * Enabled by default.
-     *
-     * @var bool
-     */
-    private $includeSitemaps = true;
+    private $userAgent;
 
     /**
      * Maximum number of requests
@@ -90,15 +78,6 @@ final class Escargot
      * @var int
      */
     private $maxRequests = 0;
-
-    /**
-     * Maximum depth Escargot
-     * is going to crawl.
-     * 0 means no limit.
-     *
-     * @var int
-     */
-    private $maxDepth = 0;
 
     /**
      * Request delay in microseconds.
@@ -132,6 +111,8 @@ final class Escargot
         $this->queue = $queue;
         $this->jobId = $jobId;
         $this->baseUris = $baseUris;
+
+        $this->setUserAgent(self::DEFAULT_USER_AGENT);
     }
 
     public function setEventDispatcher(EventDispatcherInterface $eventDispatcher): self
@@ -150,30 +131,14 @@ final class Escargot
         return $this->eventDispatcher;
     }
 
-    public function getUriFilter(): UriFilterInterface
+    public function getUserAgent(): string
     {
-        if (null === $this->uriFilter) {
-            $this->uriFilter = new DefaultUriFilter($this);
-        }
-
-        return $this->uriFilter;
+        return $this->userAgent;
     }
 
-    public function setUriFilter(UriFilterInterface $uriFilter): self
+    public function setUserAgent(string $userAgent): self
     {
-        $this->uriFilter = $uriFilter;
-
-        return $this;
-    }
-
-    public function includeSitemaps(): bool
-    {
-        return $this->includeSitemaps;
-    }
-
-    public function setIncludeSitemaps(bool $includeSitemaps): self
-    {
-        $this->includeSitemaps = $includeSitemaps;
+        $this->userAgent = $userAgent;
 
         return $this;
     }
@@ -186,13 +151,6 @@ final class Escargot
     public function setConcurrency(int $concurrency): void
     {
         $this->concurrency = $concurrency;
-    }
-
-    public function setMaxDepth(int $maxDepth): self
-    {
-        $this->maxDepth = $maxDepth;
-
-        return $this;
     }
 
     public function getRequestDelay(): int
@@ -214,10 +172,15 @@ final class Escargot
         return $this;
     }
 
+    public function getLogger(): ?LoggerInterface
+    {
+        return $this->logger;
+    }
+
     public function getClient(): HttpClientInterface
     {
         if (null === $this->client) {
-            $this->client = HttpClient::create(['headers' => ['User-Agent' => self::DEFAULT_USER_AGENT]]);
+            $this->client = HttpClient::create(['headers' => ['User-Agent' => $this->getUserAgent()]]);
         }
 
         return $this->client;
@@ -241,11 +204,6 @@ final class Escargot
     public function getMaxRequests(): int
     {
         return $this->maxRequests;
-    }
-
-    public function getMaxDepth(): int
-    {
-        return $this->maxDepth;
     }
 
     public function getConcurrency(): int
@@ -298,6 +256,8 @@ final class Escargot
         if (0 === $this->runningRequests
             && ($this->isMaxRequestsReached() || null === $this->queue->getNext($this->jobId))
         ) {
+            $this->log(LogLevel::DEBUG, sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()));
+
             $this->getEventDispatcher()->dispatch(new FinishedCrawlingEvent($this));
 
             return;
@@ -306,37 +266,52 @@ final class Escargot
         $this->processResponses($this->prepareResponses());
     }
 
+    /**
+     * Adds an URI to the queue if not present already.
+     *
+     * @return bool True if it was added and false if it existed already before
+     */
+    public function addUriToQueue(UriInterface $uri, CrawlUri $foundOn, bool $processed = false): bool
+    {
+        $crawlUrl = $this->queue->get($this->jobId, $uri);
+        if (null === $crawlUrl) {
+            $crawlUrl = new CrawlUri($uri, $foundOn->getLevel() + 1, $processed, $foundOn->getUri());
+            $this->queue->add($this->jobId, $crawlUrl);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Logs a message to the logger if one was provided.
+     */
+    public function log(string $level, string $message, array $context = []): void
+    {
+        if (null === $this->logger) {
+            return;
+        }
+
+        $this->logger->log($level, $message, $context);
+    }
+
     private function processResponses(array $responses): void
     {
         foreach ($this->getClient()->stream($responses) as $response => $chunk) {
             try {
-                if ($chunk->isFirst()) {
-                    if (200 !== $response->getStatusCode()) {
-                        --$this->runningRequests;
-                        $response->cancel();
-                        $this->getEventDispatcher()->dispatch(new UnsuccessfulResponseEvent($this, $response));
-                        continue;
-                    }
+                // Dispatch event
+                $event = new ResponseEvent($this, $response, $chunk);
+                $this->getEventDispatcher()->dispatch($event);
 
-                    // We're an HTML crawler, so we reject everything that's not text/html immediately
-                    if (!isset($response->getHeaders()['content-type'][0])
-                        || false === strpos($response->getHeaders()['content-type'][0], 'text/html')
-                    ) {
-                        // TODO: another event?
-                        --$this->runningRequests;
-                        $response->cancel();
-                        continue;
-                    }
+                // Response was canceled by listener
+                if ($event->responseWasCanceled()) {
+                    --$this->runningRequests;
+                    continue;
                 }
 
                 if ($chunk->isLast()) {
                     --$this->runningRequests;
-
-                    // Trigger event
-                    $this->getEventDispatcher()->dispatch(new SuccessfulResponseEvent($this, $response));
-
-                    // Process
-                    $this->processResponse($response);
                 }
             } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $e) {
                 --$this->runningRequests;
@@ -365,14 +340,18 @@ final class Escargot
             $crawlUri->markProcessed();
             $this->queue->add($this->jobId, $crawlUri);
 
+            // Dispatch event
+            $event = new PreRequestEvent($this, $crawlUri);
+            $this->getEventDispatcher()->dispatch($event);
+
+            // A subscriber said this crawlUri shall not be requested
+            if ($event->wasRequestAborted()) {
+                continue;
+            }
+
             // Request delay
             if (0 !== $this->requestDelay) {
                 usleep($this->requestDelay);
-            }
-
-            // If this is a base URI we check the robots.txt for sitemap entries if enabled
-            if ($this->includeSitemaps() && 0 === $crawlUri->getLevel()) {
-                $this->handleSitemap($crawlUri->getUri());
             }
 
             try {
@@ -391,55 +370,6 @@ final class Escargot
         return $responses;
     }
 
-    private function handleSitemap(UriInterface $uri): void
-    {
-        // Make sure we get the correct URI to the robots.txt
-        $uri = $uri->withPath('/robots.txt')->withFragment('')->withQuery('');
-
-        try {
-            $response = $this->getClient()->request('GET', (string) $uri);
-        } catch (TransportExceptionInterface $e) {
-            // TODO: event?
-            return;
-        }
-
-        if (null === $response || 200 !== $response->getStatusCode()) {
-            return;
-        }
-
-        $robotsTxtContent = $response->getContent();
-        $foundOn = new CrawlUri($uri, 1, true); // Level 1 because 0 is the base URI and 1 is the robots.txt
-
-        // Extract sitemaps
-        foreach (explode("\n", $robotsTxtContent) as $line) {
-            $line = trim($line);
-
-            if (\strlen($line) < 8 || 0 !== substr_compare($line, 'Sitemap:', 0, 8, true)) {
-                continue;
-            }
-
-            // Get URI and request
-            $sitemapUri = trim(substr($line, 8));
-
-            try {
-                $response = $this->getClient()->request('GET', $sitemapUri);
-            } catch (TransportExceptionInterface $e) {
-                continue;
-            }
-
-            if (null === $response || 200 !== $response->getStatusCode()) {
-                continue;
-            }
-
-            $urls = new \SimpleXMLElement($response->getContent());
-
-            foreach ($urls as $url) {
-                // Add it to the queue if not present already
-                $this->addUriToQueue(new Uri((string) $url->loc), $foundOn);
-            }
-        }
-    }
-
     private function isMaxRequestsReached(): bool
     {
         return 0 !== $this->maxRequests && $this->requestsSent >= $this->maxRequests;
@@ -448,87 +378,5 @@ final class Escargot
     private function isMaxConcurrencyReached(): bool
     {
         return $this->runningRequests >= $this->concurrency;
-    }
-
-    private function processResponse(ResponseInterface $response): void
-    {
-        /** @var CrawlUri $currentCrawlUri */
-        $currentCrawlUri = $response->getInfo('user_data');
-
-        // Stop crawling if we have reached max depth
-        if (0 !== $this->maxDepth && $this->maxDepth <= $currentCrawlUri->getLevel()) {
-            // TODO: another event?
-            return;
-        }
-
-        // Skip responses that contain an X-Robots-Tag header with nofollow
-        if (isset($headers['x-robots-tag'][0]) && false !== strpos($response->getHeaders()['x-robots-tag'][0], 'nofollow')) {
-            // TODO: another event?
-            return;
-        }
-
-        // Skip responses that contain nofollow in the robots meta tag
-        $crawler = new Crawler($response->getContent());
-        $metaCrawler = $crawler->filter('head meta[name="robots"]');
-        $robotsMeta = $metaCrawler->count() ? $metaCrawler->first()->attr('content') : '';
-
-        // We could early return here but for debugging purposes
-        // it's better to still crawl all the links and fire events
-        // so that one can spot why a certain link was not followed.
-        $robotsMetaNofollow = false !== strpos($robotsMeta, 'nofollow');
-
-        // Now crawl for links
-        $linkCrawler = $crawler->filter('a');
-        foreach ($linkCrawler as $node) {
-            $link = new Link($node, (string) $currentCrawlUri->getUri()->withPath('')->withQuery('')->withFragment(''));
-            $uri = new Uri($link->getUri());
-
-            // Normalize uri
-            $uri = CrawlUri::normalizeUri($uri);
-
-            // Filtered by <meta name="robots" content="nofollow">
-            if ($robotsMetaNofollow) {
-                // Add it to the queue and mark processed so the event is only dispatched once per URI
-                $wasAdded = $this->addUriToQueue($uri, $currentCrawlUri, true);
-                if ($wasAdded) {
-                    $this->getEventDispatcher()->dispatch(new ExcludedByRobotsMetaTagEvent($this, $uri));
-                }
-                continue;
-            }
-
-            // Ask the URI filter if we should even crawl that URI
-            if (!$this->getUriFilter()->shouldCrawl($uri, $node)) {
-                // Add it to the queue and mark processed so the event is only dispatched once per URI
-                $wasAdded = $this->addUriToQueue($uri, $currentCrawlUri, true);
-
-                // Only dispatch event once per URI
-                if ($wasAdded) {
-                    $this->getEventDispatcher()->dispatch(new ExcludedByUriFilterEvent($this, $uri, $node));
-                }
-
-                continue;
-            }
-
-            // Mark URI to process
-            $this->addUriToQueue($uri, $currentCrawlUri);
-        }
-    }
-
-    /**
-     * Adds an URI to the queue if not present already.
-     *
-     * @return bool True if it was added and false if it existed already before
-     */
-    private function addUriToQueue(UriInterface $uri, CrawlUri $foundOn, bool $processed = false): bool
-    {
-        $crawlUrl = $this->queue->get($this->jobId, $uri);
-        if (null === $crawlUrl) {
-            $crawlUrl = new CrawlUri($uri, $foundOn->getLevel() + 1, $processed, $foundOn->getUri());
-            $this->queue->add($this->jobId, $crawlUrl);
-
-            return true;
-        }
-
-        return false;
     }
 }

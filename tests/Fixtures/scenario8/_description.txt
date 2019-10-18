@@ -1,1 +1,1 @@
-Here we test if the sitemap data of the robots.txt is correctly interpreted and added to the queue.
+Here we test if the skipped URIs due to the URI filter do not trigger the events multiple times.

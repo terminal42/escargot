@@ -1,3 +1,2 @@
-Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root).
-Excluded an URI because of the <meta name="robots"> containing "nofollow": https://www.terminal42.ch/foobar
+[URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root)] Skipped all links on this URI because the <meta name="robots"> tag contained "nofollow".
 Finished crawling! Sent 1 request(s).

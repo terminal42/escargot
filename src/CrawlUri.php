@@ -54,11 +54,19 @@ class CrawlUri
 
     public function __toString()
     {
-        return sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s).',
+        return sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s)',
             (string) $this->getUri(),
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',
             (string) $this->getFoundOn() ?: 'root'
+        );
+    }
+
+    public function createLogMessage(string $message): string
+    {
+        return sprintf('[%s] %s',
+            (string) $this,
+            $message
         );
     }
 

@@ -1,6 +1,4 @@
 Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root).
 Successful request! URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/).
-Excluded an URI because of the configured UriFilter: https://www.terminal42.ch/foobar3
 Successful request! URI: https://www.terminal42.ch/foobar2 (Level: 2, Processed: yes, Found on: https://www.terminal42.ch/foobar).
-Finished crawling! Sent 3 request(s).
 

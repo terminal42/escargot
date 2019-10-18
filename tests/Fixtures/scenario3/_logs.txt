@@ -1,4 +1,3 @@
-Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root).
-Excluded an URI because of the configured UriFilter: https://www.terminal42.ch/foobar
-Excluded an URI because of the configured UriFilter: https://www.terminal42.ch/image.jpg
+[URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root)] Skipped URI "https://www.terminal42.ch/foobar" because the "rel" attribute contains "nofollow".
+[URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root)] Skipped URI "https://www.terminal42.ch/image.jpg" because the "type" attribute does not contain "text/html".
 Finished crawling! Sent 1 request(s).

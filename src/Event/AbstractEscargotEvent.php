@@ -12,9 +12,10 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Event;
 
+use Symfony\Contracts\EventDispatcher\Event;
 use Terminal42\Escargot\Escargot;
 
-abstract class AbstractEscargotEvent
+abstract class AbstractEscargotEvent extends Event
 {
     /**
      * @var Escargot

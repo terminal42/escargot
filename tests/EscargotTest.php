@@ -17,14 +17,18 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\Test\TestLogger;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Terminal42\Escargot\BaseUriCollection;
+use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
-use Terminal42\Escargot\EventSubscriber\LoggerSubscriber;
-use Terminal42\Escargot\Filter\DefaultUriFilter;
-use Terminal42\Escargot\Filter\UriFilterInterface;
+use Terminal42\Escargot\Event\ResponseEvent;
+use Terminal42\Escargot\EventSubscriber\HtmlCrawlerSubscriber;
+use Terminal42\Escargot\EventSubscriber\MaxDepthSubscriber;
+use Terminal42\Escargot\EventSubscriber\MustMatchContentTypeSubscriber;
+use Terminal42\Escargot\EventSubscriber\RobotsSubscriber;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
 
@@ -41,11 +45,9 @@ class EscargotTest extends TestCase
         $this->assertInstanceOf(InMemoryQueue::class, $escargot->getQueue());
         $this->assertInstanceOf(EventDispatcher::class, $escargot->getEventDispatcher());
         $this->assertInstanceOf(HttpClientInterface::class, $escargot->getClient());
-        $this->assertInstanceOf(DefaultUriFilter::class, $escargot->getUriFilter());
 
         $this->assertNotEmpty($escargot->getJobId());
         $this->assertSame(0, $escargot->getMaxRequests());
-        $this->assertSame(0, $escargot->getMaxDepth());
         $this->assertSame(10, $escargot->getConcurrency());
         $this->assertSame(0, $escargot->getRequestsSent());
     }
@@ -59,19 +61,14 @@ class EscargotTest extends TestCase
         $escargot = Escargot::create($baseUris, $queue);
 
         $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
-        $uriFilter = $this->createMock(UriFilterInterface::class);
 
-        $escargot->setMaxDepth(5);
         $escargot->setConcurrency(15);
         $escargot->setMaxRequests(500);
         $escargot->setEventDispatcher($eventDispatcher);
-        $escargot->setUriFilter($uriFilter);
 
-        $this->assertSame(5, $escargot->getMaxDepth());
         $this->assertSame(15, $escargot->getConcurrency());
         $this->assertSame(500, $escargot->getMaxRequests());
         $this->assertSame($eventDispatcher, $escargot->getEventDispatcher());
-        $this->assertSame($uriFilter, $escargot->getUriFilter());
     }
 
     public function testEmptyBaseUriCollection(): void
@@ -116,7 +113,7 @@ class EscargotTest extends TestCase
     /**
      * @dataProvider crawlProvider
      */
-    public function testCrawl(\Closure $responseFactory, array $expectedLogs, string $message, $options = []): void
+    public function testCrawlAsWebCrawler(\Closure $responseFactory, array $expectedLogs, array $expectedRequests, string $message, $options = []): void
     {
         $baseUris = new BaseUriCollection();
         $baseUris->add(new Uri('https://www.terminal42.ch'));
@@ -125,29 +122,42 @@ class EscargotTest extends TestCase
 
         $escargot = Escargot::create($baseUris, $queue, new MockHttpClient($responseFactory));
 
+        $escargot->addSubscriber(new MustMatchContentTypeSubscriber('text/html'));
+        $escargot->addSubscriber(new RobotsSubscriber());
+
         if (0 !== \count($options)) {
             if (\array_key_exists('max_requests', $options)) {
                 $escargot->setMaxRequests((int) $options['max_requests']);
             }
             if (\array_key_exists('max_depth', $options)) {
-                $escargot->setMaxDepth((int) $options['max_depth']);
-            }
-            if (\array_key_exists('include_sitemaps', $options)) {
-                $escargot->setIncludeSitemaps('false' === $options['include_sitemaps'] ? false : true);
+                $escargot->addSubscriber(new MaxDepthSubscriber((int) $options['max_depth']));
             }
         }
 
+        // Parses HTML and adds the links to the queue
+        $escargot->addSubscriber(new HtmlCrawlerSubscriber());
+
         // Register a test logger which then allows us to very easily assert what's happening based on the logs
         $logger = new TestLogger();
-        $escargot->addSubscriber(new LoggerSubscriber($logger));
+        $escargot->setLogger($logger);
+
+        // We also add a subscriber that shall log all the successful requests
+        $collector = $this->getSuccessfulResponseCollectorSubscriber();
+        $escargot->addSubscriber($collector);
 
         $escargot->crawl();
 
-        $filteredRecords = array_map(function (array $record) {
+        $filteredLogs = array_map(function (array $record) {
             return $record['message'];
         }, $logger->records);
 
-        $this->assertSame($expectedLogs, $filteredRecords, $message);
+        $this->assertSame($expectedLogs, $filteredLogs, $message);
+
+        $filteredRequests = array_map(function (CrawlUri $crawlUri) {
+            return sprintf('Successful request! %s.', (string) $crawlUri);
+        }, $collector->getUris());
+
+        $this->assertSame($expectedRequests, $filteredRequests, $message);
     }
 
     public function crawlProvider(): \Generator
@@ -164,5 +174,37 @@ class EscargotTest extends TestCase
 
             yield $scenario->getName() => $scenario->getArgumentsForCrawlProvider();
         }
+    }
+
+    private function getSuccessfulResponseCollectorSubscriber(): EventSubscriberInterface
+    {
+        return new class() implements EventSubscriberInterface {
+            private $uris = [];
+
+            public function getUris(): array
+            {
+                return $this->uris;
+            }
+
+            public function onResponse(ResponseEvent $event): void
+            {
+                if (!$event->getCurrentChunk()->isLast()) {
+                    return;
+                }
+
+                if (200 !== $event->getResponse()->getStatusCode()) {
+                    return;
+                }
+
+                $this->uris[] = $event->getCrawlUri();
+            }
+
+            public static function getSubscribedEvents()
+            {
+                return [
+                    ResponseEvent::class => 'onResponse',
+                ];
+            }
+        };
     }
 }

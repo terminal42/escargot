@@ -1,3 +1,1 @@
-Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root).
-The response to "https://www.terminal42.ch/foobar" was not successful (Status code: 404)
 Finished crawling! Sent 2 request(s).

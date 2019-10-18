@@ -44,6 +44,17 @@ class BaseUriCollection implements \IteratorAggregate, \Countable
         return isset($this->baseUris[(string) $baseUri]);
     }
 
+    public function containsHost(string $host): bool
+    {
+        $hosts = [];
+
+        foreach ($this->baseUris as $baseUri) {
+            $hosts[] = $baseUri->getHost();
+        }
+
+        return \in_array($host, $hosts, true);
+    }
+
     public function mergeWith(self $collection): self
     {
         $merged = new self();
