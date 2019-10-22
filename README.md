@@ -288,9 +288,10 @@ There are different configurations you can apply to the `Escargot` instance:
    Returns a clone of the `Escargot` instance with your custom implementation of the `EventDispatcherInterface` in case
    you don't want to use the default `EventDispatcher`.
 
-* `Escargot::setLogger(LoggerInterface $logger)`
+* `Escargot::withLogger(LoggerInterface $logger)`
 
-   Provide a PSR-3 `Psr\Log\LoggerInterface` instance to gain more insight in what's happening in `Escargot`.
+   Returns a clone of the `Escargot` instance with your PSR-3 `Psr\Log\LoggerInterface` instance to gain more insight
+   in what's happening in `Escargot`.
    
 ## Roadmap / Ideas
 

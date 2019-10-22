@@ -35,7 +35,7 @@ abstract class AbstractSubscriberTest extends TestCase
         );
 
         if ($logger) {
-            $escargot->setLogger($logger);
+            $escargot = $escargot->withLogger($logger);
         }
 
         return $escargot;

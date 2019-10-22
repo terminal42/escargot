@@ -13,8 +13,6 @@ declare(strict_types=1);
 namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
-use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -35,10 +33,8 @@ use Terminal42\Escargot\Event\ResponseEvent;
 use Terminal42\Escargot\Exception\InvalidJobIdException;
 use Terminal42\Escargot\Queue\QueueInterface;
 
-final class Escargot implements LoggerAwareInterface
+final class Escargot
 {
-    use LoggerAwareTrait;
-
     private const DEFAULT_USER_AGENT = 'terminal42/escargot';
 
     /**
@@ -65,6 +61,11 @@ final class Escargot implements LoggerAwareInterface
      * @var EventDispatcherInterface|null
      */
     private $eventDispatcher;
+
+    /**
+     * @var LoggerInterface|null
+     */
+    private $logger;
 
     /**
      * @var string
@@ -172,6 +173,14 @@ final class Escargot implements LoggerAwareInterface
     {
         $new = clone $this;
         $new->requestDelay = $requestDelay;
+
+        return $new;
+    }
+
+    public function withLogger(LoggerInterface $logger): self
+    {
+        $new = clone $this;
+        $new->logger = $logger;
 
         return $new;
     }

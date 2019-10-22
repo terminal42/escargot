@@ -139,7 +139,7 @@ class EscargotTest extends TestCase
 
         // Register a test logger which then allows us to very easily assert what's happening based on the logs
         $logger = new TestLogger();
-        $escargot->setLogger($logger);
+        $escargot = $escargot->withLogger($logger);
 
         // We also add a subscriber that shall log all the successful requests
         $collector = $this->getSuccessfulResponseCollectorSubscriber();
