@@ -14,15 +14,15 @@ namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
 
-class BaseUriCollection implements \IteratorAggregate, \Countable
+final class BaseUriCollection implements \IteratorAggregate, \Countable
 {
     /**
-     * @var UriInterface[]
+     * @var array<UriInterface>
      */
     private $baseUris = [];
 
     /**
-     * @param UriInterface[] $baseUris
+     * @param array<UriInterface> $baseUris
      */
     public function __construct(array $baseUris = [])
     {
@@ -31,10 +31,12 @@ class BaseUriCollection implements \IteratorAggregate, \Countable
         }
     }
 
-    public function add(UriInterface $baseUri)
+    public function add(UriInterface $baseUri): self
     {
         $baseUri = CrawlUri::normalizeUri($baseUri);
         $this->baseUris[(string) $baseUri] = $baseUri;
+
+        return $this;
     }
 
     public function contains(UriInterface $baseUri): bool
@@ -71,7 +73,7 @@ class BaseUriCollection implements \IteratorAggregate, \Countable
     }
 
     /**
-     * @return UriInterface[]
+     * @return array<UriInterface>
      */
     public function all(): array
     {

@@ -17,7 +17,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
 
-class ResponseEvent extends AbstractEscargotEvent
+final class ResponseEvent extends AbstractEscargotEvent
 {
     /**
      * @var ResponseInterface

@@ -16,7 +16,7 @@ use Psr\Log\LogLevel;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Terminal42\Escargot\Event\ResponseEvent;
 
-class MustMatchContentTypeSubscriber implements EventSubscriberInterface
+final class MustMatchContentTypeSubscriber implements EventSubscriberInterface
 {
     /**
      * @var string

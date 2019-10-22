@@ -21,7 +21,7 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Event\ResponseEvent;
 
-class HtmlCrawlerSubscriber implements EventSubscriberInterface
+final class HtmlCrawlerSubscriber implements EventSubscriberInterface
 {
     public function onResponse(ResponseEvent $event): void
     {
@@ -146,7 +146,7 @@ class HtmlCrawlerSubscriber implements EventSubscriberInterface
         }
 
         // Skip the links that have the "type" attribute set and it's not text/html
-        if (($type = $node->getAttribute('type')) && 'text/html' !== $type) {
+        if ($node->hasAttribute('type') && 'text/html' !== $node->getAttribute('type')) {
             $event->getEscargot()->log(
                 LogLevel::DEBUG,
                 $event->getCrawlUri()->createLogMessage(sprintf('Skipped URI "%s" because the "type" attribute does not contain "text/html".', (string) $uri))

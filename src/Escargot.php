@@ -21,11 +21,13 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpClient\HttpClient;
+use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\Event\FinishedCrawlingEvent;
 use Terminal42\Escargot\Event\PreRequestEvent;
 use Terminal42\Escargot\Event\RequestExceptionEvent;
@@ -105,21 +107,22 @@ final class Escargot implements LoggerAwareInterface
      */
     private $runningRequests = 0;
 
-    private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris, HttpClientInterface $client = null)
+    private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris, ?HttpClientInterface $client = null)
     {
         $this->client = $client;
         $this->queue = $queue;
         $this->jobId = $jobId;
         $this->baseUris = $baseUris;
 
-        $this->setUserAgent(self::DEFAULT_USER_AGENT);
+        $this->userAgent = self::DEFAULT_USER_AGENT;
     }
 
-    public function setEventDispatcher(EventDispatcherInterface $eventDispatcher): self
+    public function withEventDispatcher(EventDispatcherInterface $eventDispatcher): self
     {
-        $this->eventDispatcher = $eventDispatcher;
+        $new = clone $this;
+        $new->eventDispatcher = $eventDispatcher;
 
-        return $this;
+        return $new;
     }
 
     public function getEventDispatcher(): EventDispatcherInterface
@@ -136,21 +139,28 @@ final class Escargot implements LoggerAwareInterface
         return $this->userAgent;
     }
 
-    public function setUserAgent(string $userAgent): self
+    public function withUserAgent(string $userAgent): self
     {
-        $this->userAgent = $userAgent;
+        $new = clone $this;
+        $new->userAgent = $userAgent;
 
-        return $this;
+        return $new;
     }
 
-    public function setMaxRequests(int $maxRequests): void
+    public function withMaxRequests(int $maxRequests): self
     {
-        $this->maxRequests = $maxRequests;
+        $new = clone $this;
+        $new->maxRequests = $maxRequests;
+
+        return $new;
     }
 
-    public function setConcurrency(int $concurrency): void
+    public function withConcurrency(int $concurrency): self
     {
-        $this->concurrency = $concurrency;
+        $new = clone $this;
+        $new->concurrency = $concurrency;
+
+        return $new;
     }
 
     public function getRequestDelay(): int
@@ -158,11 +168,12 @@ final class Escargot implements LoggerAwareInterface
         return $this->requestDelay;
     }
 
-    public function setRequestDelay(int $requestDelay): self
+    public function withRequestDelay(int $requestDelay): self
     {
-        $this->requestDelay = $requestDelay;
+        $new = clone $this;
+        $new->requestDelay = $requestDelay;
 
-        return $this;
+        return $new;
     }
 
     public function addSubscriber(EventSubscriberInterface $subscriber): self
@@ -216,10 +227,7 @@ final class Escargot implements LoggerAwareInterface
         return $this->requestsSent;
     }
 
-    /**
-     * @throws InvalidJobIdException if the provided job ID could not be retrieved by the queue
-     */
-    public static function createFromJobId(string $jobId, QueueInterface $queue, HttpClientInterface $client = null): self
+    public static function createFromJobId(string $jobId, QueueInterface $queue, ?HttpClientInterface $client = null): self
     {
         if (!$queue->isJobIdValid($jobId)) {
             throw new InvalidJobIdException(sprintf('Job ID "%s" is invalid!', $jobId));
@@ -233,7 +241,7 @@ final class Escargot implements LoggerAwareInterface
         );
     }
 
-    public static function create(BaseUriCollection $baseUris, QueueInterface $queue, HttpClientInterface $client = null): self
+    public static function create(BaseUriCollection $baseUris, QueueInterface $queue, ?HttpClientInterface $client = null): self
     {
         if (0 === \count($baseUris)) {
             throw new InvalidJobIdException('Cannot create an Escargot instance with an empty BaseUriCollection!');
@@ -286,6 +294,8 @@ final class Escargot implements LoggerAwareInterface
 
     /**
      * Logs a message to the logger if one was provided.
+     *
+     * @param array<string,array|string|int> $context
      */
     public function log(string $level, string $message, array $context = []): void
     {
@@ -296,33 +306,38 @@ final class Escargot implements LoggerAwareInterface
         $this->logger->log($level, $message, $context);
     }
 
+    /**
+     * @param array<ResponseInterface> $responses
+     */
     private function processResponses(array $responses): void
     {
         foreach ($this->getClient()->stream($responses) as $response => $chunk) {
-            try {
-                // Dispatch event
-                $event = new ResponseEvent($this, $response, $chunk);
-                $this->getEventDispatcher()->dispatch($event);
-
-                // Response was canceled by listener
-                if ($event->responseWasCanceled()) {
-                    --$this->runningRequests;
-                    continue;
-                }
-
-                if ($chunk->isLast()) {
-                    --$this->runningRequests;
-                }
-            } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $e) {
-                --$this->runningRequests;
-                $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $e, $response));
-            }
+            $this->processResponseChunk($response, $chunk);
         }
 
         // Continue crawling
         $this->crawl();
     }
 
+    private function processResponseChunk(ResponseInterface $response, ChunkInterface $chunk): void
+    {
+        try {
+            // Dispatch event
+            $event = new ResponseEvent($this, $response, $chunk);
+            $this->getEventDispatcher()->dispatch($event);
+
+            if ($event->responseWasCanceled() || $chunk->isLast()) {
+                --$this->runningRequests;
+            }
+        } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $exception) {
+            --$this->runningRequests;
+            $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $exception, $response));
+        }
+    }
+
+    /**
+     * @return array<ResponseInterface>
+     */
     private function prepareResponses(): array
     {
         $responses = [];
@@ -360,10 +375,10 @@ final class Escargot implements LoggerAwareInterface
                 ]);
                 ++$this->runningRequests;
                 ++$this->requestsSent;
-            } catch (TransportExceptionInterface $e) {
+            } catch (TransportExceptionInterface $exception) {
                 --$this->runningRequests;
 
-                $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $e));
+                $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $exception));
             }
         }
 

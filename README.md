@@ -263,19 +263,30 @@ $escargot->addSubscriber(new HtmlCrawlerSubscriber());
 
 There are different configurations you can apply to the `Escargot` instance:
 
-* `Escargot::setMaxRequests(int $maxRequests)`
+* `Escargot::withMaxRequests(int $maxRequests)`
 
-   Lets you allow the maximum total requests that are going to be executed. It can be useful if you have limited
-   resources and only want to execute e.g. `100` requests in this run and continue later on.
-
-* `Escargot::setConcurrency(int $concurrency)`
-
-   Lets you configure the maximum concurrent requests that are being sent. By default, this is configured to `10`.
+   Returns a clone of the `Escargot` instance with a maximum total requests that are going to be executed. It can be
+   useful if you have limited resources and only want to execute e.g. `100` requests in this run and continue later on.
    
-* `Escargot::setRequestDelay(int $requestDelay)`
+* `Escargot::withUserAgent(string $userAgent)`
 
-   Lets you configure the delay between requests in microseconds. By default, it's `0` so there's no extra
-   delay. It can be useful to make sure `Escargot` does not run into some (D)DOS protection or similar issues.
+   Returns a clone of the `Escargot` instance with a different `User-Agent` header. The header is sent with all the
+   requests and by default configured to `terminal42/escargot`.
+
+* `Escargot::withConcurrency(int $concurrency)`
+
+   Returns a clone of the `Escargot` instance with a maximum concurrent requests that are going to be sent at a time.
+   By default, this is configured to `10`.
+   
+* `Escargot::withRequestDelay(int $requestDelay)`
+
+   Returns a clone of the `Escargot` instance with an added delay between requests in microseconds. By default, there's
+   no extra  delay. It can be useful to make sure `Escargot` does not run into some (D)DOS protection or similar issues.
+   
+* `Escargot::withEventDispatcher(EventDispatcherInterface $eventDispatcher)`
+
+   Returns a clone of the `Escargot` instance with your custom implementation of the `EventDispatcherInterface` in case
+   you don't want to use the default `EventDispatcher`.
 
 * `Escargot::setLogger(LoggerInterface $logger)`
 

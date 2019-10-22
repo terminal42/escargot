@@ -12,6 +12,6 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Exception;
 
-class InvalidJobIdException extends \InvalidArgumentException
+final class InvalidJobIdException extends \InvalidArgumentException
 {
 }

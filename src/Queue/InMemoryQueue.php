@@ -16,7 +16,7 @@ use Psr\Http\Message\UriInterface;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 
-class InMemoryQueue implements QueueInterface
+final class InMemoryQueue implements QueueInterface
 {
     /**
      * @var array<string,array<UriInterface>>
@@ -77,15 +77,17 @@ class InMemoryQueue implements QueueInterface
         }
 
         $i = 0;
-        foreach ($this->queue[$jobId] as $uri => $crawlUri) {
-            if (!$crawlUri->isProcessed()) {
-                if ($skip > 0 && $i < $skip) {
-                    ++$i;
-                    continue;
-                }
-
-                return $crawlUri;
+        foreach ($this->queue[$jobId] as $crawlUri) {
+            if ($crawlUri->isProcessed()) {
+                continue;
             }
+
+            if ($skip > 0 && $i < $skip) {
+                ++$i;
+                continue;
+            }
+
+            return $crawlUri;
         }
 
         return null;
@@ -100,7 +102,7 @@ class InMemoryQueue implements QueueInterface
     {
         $count = 0;
 
-        foreach ($this->queue[$jobId] as $uri => $crawlUri) {
+        foreach ($this->queue[$jobId] as $crawlUri) {
             if (!$crawlUri->isProcessed()) {
                 ++$count;
             }
@@ -111,7 +113,7 @@ class InMemoryQueue implements QueueInterface
 
     public function getAll(string $jobId): \Generator
     {
-        foreach ($this->queue[$jobId] as $uri => $crawlUri) {
+        foreach ($this->queue[$jobId] as $crawlUri) {
             yield $crawlUri;
         }
     }

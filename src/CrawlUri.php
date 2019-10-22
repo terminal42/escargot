@@ -14,7 +14,7 @@ namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
 
-class CrawlUri
+final class CrawlUri
 {
     /**
      * @var UriInterface
@@ -41,24 +41,24 @@ class CrawlUri
      */
     private $foundOn = null;
 
-    public function __construct(UriInterface $uri, int $level, bool $processed = false, UriInterface $foundOn = null)
+    public function __construct(UriInterface $uri, int $level, bool $processed = false, ?UriInterface $foundOn = null)
     {
-        $this->uri = static::normalizeUri($uri);
+        $this->uri = self::normalizeUri($uri);
         $this->level = $level;
         $this->processed = $processed;
 
         if (null !== $foundOn) {
-            $this->foundOn = static::normalizeUri($foundOn);
+            $this->foundOn = self::normalizeUri($foundOn);
         }
     }
 
-    public function __toString()
+    public function __toString(): string
     {
         return sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s)',
             (string) $this->getUri(),
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',
-            (string) $this->getFoundOn() ?: 'root'
+            (string) ($this->getFoundOn() ? $this->getFoundOn() : 'root')
         );
     }
 

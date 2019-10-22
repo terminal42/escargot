@@ -15,7 +15,7 @@ namespace Terminal42\Escargot\Event;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
 
-class PreRequestEvent extends AbstractEscargotEvent
+final class PreRequestEvent extends AbstractEscargotEvent
 {
     /**
      * @var CrawlUri

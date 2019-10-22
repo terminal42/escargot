@@ -16,7 +16,7 @@ use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\Escargot;
 
-class RequestExceptionEvent extends AbstractEscargotEvent
+final class RequestExceptionEvent extends AbstractEscargotEvent
 {
     /**
      * @var ExceptionInterface
@@ -28,7 +28,7 @@ class RequestExceptionEvent extends AbstractEscargotEvent
      */
     private $response;
 
-    public function __construct(Escargot $crawler, ExceptionInterface $exception, ResponseInterface $response = null)
+    public function __construct(Escargot $crawler, ExceptionInterface $exception, ?ResponseInterface $response = null)
     {
         parent::__construct($crawler);
 

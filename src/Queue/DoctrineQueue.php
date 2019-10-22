@@ -22,7 +22,7 @@ use Psr\Http\Message\UriInterface;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 
-class DoctrineQueue implements QueueInterface
+final class DoctrineQueue implements QueueInterface
 {
     /**
      * @var Connection
@@ -44,7 +44,7 @@ class DoctrineQueue implements QueueInterface
      */
     private $schemaSynchronizer;
 
-    public function __construct(Connection $connection, \Closure $jobIdGenerator, $tableName = null, SchemaSynchronizer $schemaSynchronizer = null)
+    public function __construct(Connection $connection, \Closure $jobIdGenerator, ?string $tableName = null, ?SchemaSynchronizer $schemaSynchronizer = null)
     {
         $this->connection = $connection;
         $this->jobIdGenerator = $jobIdGenerator;
@@ -123,13 +123,7 @@ class DoctrineQueue implements QueueInterface
             return null;
         }
 
-        $foundOn = null;
-
-        if ($data['found_on']) {
-            $foundOn = new Uri($data['found_on']);
-        }
-
-        return new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
+        return $this->createCrawlUriFromRow($data);
     }
 
     public function add(string $jobId, CrawlUri $crawlUri): void
@@ -186,13 +180,7 @@ class DoctrineQueue implements QueueInterface
             return null;
         }
 
-        $foundOn = null;
-
-        if ($data['found_on']) {
-            $foundOn = new Uri($data['found_on']);
-        }
-
-        return new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
+        return $this->createCrawlUriFromRow($data);
     }
 
     public function countAll(string $jobId): int
@@ -236,13 +224,7 @@ class DoctrineQueue implements QueueInterface
         }
 
         foreach ($allData as $data) {
-            $foundOn = null;
-
-            if ($data['found_on']) {
-                $foundOn = new Uri($data['found_on']);
-            }
-
-            yield new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
+            yield $this->createCrawlUriFromRow($data);
         }
     }
 
@@ -277,5 +259,19 @@ class DoctrineQueue implements QueueInterface
         $table->addIndex(['processed']);
 
         $this->schemaSynchronizer->createSchema($schema);
+    }
+
+    /**
+     * @param array<string, string> $data
+     */
+    private function createCrawlUriFromRow(array $data): CrawlUri
+    {
+        $foundOn = null;
+
+        if ($data['found_on']) {
+            $foundOn = new Uri($data['found_on']);
+        }
+
+        return new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
     }
 }

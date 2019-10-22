@@ -16,7 +16,7 @@ use Psr\Http\Message\UriInterface;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 
-class LazyQueue implements QueueInterface
+final class LazyQueue implements QueueInterface
 {
     /**
      * @var QueueInterface
@@ -29,7 +29,7 @@ class LazyQueue implements QueueInterface
     private $secondaryQueue;
 
     /**
-     * @var array
+     * @var array<string,string>
      */
     private $jobIdMapper = [];
 
@@ -72,12 +72,16 @@ class LazyQueue implements QueueInterface
     public function get(string $jobId, UriInterface $uri): ?CrawlUri
     {
         // If we have it in the primary queue, early return
-        if ($crawlUri = $this->primaryQueue->get($this->getJobIdFromSecondaryJobId($jobId), $uri)) {
+        $crawlUri = $this->primaryQueue->get($this->getJobIdFromSecondaryJobId($jobId), $uri);
+
+        if (null !== $crawlUri) {
             return $crawlUri;
         }
 
         // Otherwise we check in the secondary and add it to our primary queue for consecutive calls
-        if ($crawlUri = $this->secondaryQueue->get($jobId, $uri)) {
+        $crawlUri = $this->secondaryQueue->get($jobId, $uri);
+
+        if (null !== $crawlUri) {
             $this->primaryQueue->add($this->getJobIdFromSecondaryJobId($jobId), $crawlUri);
 
             return $crawlUri;
@@ -99,14 +103,17 @@ class LazyQueue implements QueueInterface
     public function getNext(string $jobId, int $skip = 0): ?CrawlUri
     {
         // If we have it in the primary queue, early return
-        if ($next = $this->primaryQueue->getNext($this->getJobIdFromSecondaryJobId($jobId), $skip)) {
+        $next = $this->primaryQueue->getNext($this->getJobIdFromSecondaryJobId($jobId), $skip);
+        if (null !== $next) {
             return $next;
         }
 
         // Otherwise we check in the secondary and add it to our primary queue for consecutive calls.
         // At this point we have to skip the number of queue entries that were marked in the primary
         // queue.
-        if ($next = $this->secondaryQueue->getNext($jobId, $this->toSkip + $skip)) {
+        $next = $this->secondaryQueue->getNext($jobId, $this->toSkip + $skip);
+
+        if (null !== $next) {
             $this->primaryQueue->add($this->getJobIdFromSecondaryJobId($jobId), $next);
 
             return $next;

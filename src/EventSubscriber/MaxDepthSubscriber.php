@@ -16,7 +16,7 @@ use Psr\Log\LogLevel;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Terminal42\Escargot\Event\PreRequestEvent;
 
-class MaxDepthSubscriber implements EventSubscriberInterface
+final class MaxDepthSubscriber implements EventSubscriberInterface
 {
     /**
      * @var int

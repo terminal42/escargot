@@ -12,6 +12,6 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Event;
 
-class FinishedCrawlingEvent extends AbstractEscargotEvent
+final class FinishedCrawlingEvent extends AbstractEscargotEvent
 {
 }

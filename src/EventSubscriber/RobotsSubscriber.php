@@ -24,10 +24,10 @@ use webignition\RobotsTxt\File\File;
 use webignition\RobotsTxt\File\Parser;
 use webignition\RobotsTxt\Inspector\Inspector;
 
-class RobotsSubscriber implements EventSubscriberInterface
+final class RobotsSubscriber implements EventSubscriberInterface
 {
     /**
-     * @var array
+     * @var array<string,File>
      */
     private $robotsTxtCache = [];
 
@@ -100,7 +100,7 @@ class RobotsSubscriber implements EventSubscriberInterface
 
         try {
             $response = $event->getEscargot()->getClient()->request('GET', (string) $robotsTxtUri);
-        } catch (TransportExceptionInterface $e) {
+        } catch (TransportExceptionInterface $exception) {
             return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
         }
 
@@ -130,7 +130,7 @@ class RobotsSubscriber implements EventSubscriberInterface
         foreach ($robotsTxt->getNonGroupDirectives()->getByField('sitemap')->getDirectives() as $directive) {
             try {
                 $response = $event->getEscargot()->getClient()->request('GET', $directive->getValue()->get());
-            } catch (TransportExceptionInterface $e) {
+            } catch (TransportExceptionInterface $exception) {
                 continue;
             }
 

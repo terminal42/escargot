@@ -52,7 +52,7 @@ class EscargotTest extends TestCase
         $this->assertSame(0, $escargot->getRequestsSent());
     }
 
-    public function testSetters(): void
+    public function testWithers(): void
     {
         $baseUris = new BaseUriCollection();
         $baseUris->add(new Uri('https://www.terminal42.ch'));
@@ -62,9 +62,9 @@ class EscargotTest extends TestCase
 
         $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
 
-        $escargot->setConcurrency(15);
-        $escargot->setMaxRequests(500);
-        $escargot->setEventDispatcher($eventDispatcher);
+        $escargot = $escargot->withConcurrency(15);
+        $escargot = $escargot->withMaxRequests(500);
+        $escargot = $escargot->withEventDispatcher($eventDispatcher);
 
         $this->assertSame(15, $escargot->getConcurrency());
         $this->assertSame(500, $escargot->getMaxRequests());
@@ -127,7 +127,7 @@ class EscargotTest extends TestCase
 
         if (0 !== \count($options)) {
             if (\array_key_exists('max_requests', $options)) {
-                $escargot->setMaxRequests((int) $options['max_requests']);
+                $escargot = $escargot->withMaxRequests((int) $options['max_requests']);
             }
             if (\array_key_exists('max_depth', $options)) {
                 $escargot->addSubscriber(new MaxDepthSubscriber((int) $options['max_depth']));
