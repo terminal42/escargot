@@ -30,7 +30,6 @@
     "require-dev": {
         "doctrine/dbal": "^2.9",
         "friendsofphp/php-cs-fixer": "^2.15",
-        "nunomaduro/phpinsights": "^1.9",
         "symfony/finder": "^4.3",
         "symfony/phpunit-bridge": "^4.3"
     },
