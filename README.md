@@ -263,32 +263,32 @@ $escargot->addSubscriber(new HtmlCrawlerSubscriber());
 
 There are different configurations you can apply to the `Escargot` instance:
 
-* `Escargot::withMaxRequests(int $maxRequests)`
+* `Escargot::withMaxRequests(int $maxRequests): Escargot`
 
    Returns a clone of the `Escargot` instance with a maximum total requests that are going to be executed. It can be
    useful if you have limited resources and only want to execute e.g. `100` requests in this run and continue later on.
    
-* `Escargot::withUserAgent(string $userAgent)`
+* `Escargot::withUserAgent(string $userAgent): Escargot`
 
    Returns a clone of the `Escargot` instance with a different `User-Agent` header. The header is sent with all the
    requests and by default configured to `terminal42/escargot`.
 
-* `Escargot::withConcurrency(int $concurrency)`
+* `Escargot::withConcurrency(int $concurrency): Escargot`
 
    Returns a clone of the `Escargot` instance with a maximum concurrent requests that are going to be sent at a time.
    By default, this is configured to `10`.
    
-* `Escargot::withRequestDelay(int $requestDelay)`
+* `Escargot::withRequestDelay(int $requestDelay): Escargot`
 
    Returns a clone of the `Escargot` instance with an added delay between requests in microseconds. By default, there's
    no extra  delay. It can be useful to make sure `Escargot` does not run into some (D)DOS protection or similar issues.
    
-* `Escargot::withEventDispatcher(EventDispatcherInterface $eventDispatcher)`
+* `Escargot::withEventDispatcher(EventDispatcherInterface $eventDispatcher): Escargot`
 
    Returns a clone of the `Escargot` instance with your custom implementation of the `EventDispatcherInterface` in case
    you don't want to use the default `EventDispatcher`.
 
-* `Escargot::withLogger(LoggerInterface $logger)`
+* `Escargot::withLogger(LoggerInterface $logger): Escargot`
 
    Returns a clone of the `Escargot` instance with your PSR-3 `Psr\Log\LoggerInterface` instance to gain more insight
    in what's happening in `Escargot`.
