@@ -104,9 +104,9 @@ final class Escargot
     private $requestsSent = 0;
 
     /**
-     * @var int
+     * @var array
      */
-    private $runningRequests = 0;
+    private $runningRequests = [];
 
     private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris, ?HttpClientInterface $client = null)
     {
@@ -270,7 +270,7 @@ final class Escargot
     {
         // We're finished if we have reached the max requests or the queue is empty
         // and no request is being processed anymore
-        if (0 === $this->runningRequests
+        if (0 === \count($this->runningRequests)
             && ($this->isMaxRequestsReached() || null === $this->queue->getNext($this->jobId))
         ) {
             $this->log(LogLevel::DEBUG, sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()));
@@ -315,6 +315,20 @@ final class Escargot
         $this->logger->log($level, $message, $context);
     }
 
+    private function markGoingToRequest(ResponseInterface $response): void
+    {
+        if (!isset($this->runningRequests[(string) $response->getInfo('user_data')])) {
+            ++$this->requestsSent;
+        }
+
+        $this->runningRequests[(string) $response->getInfo('user_data')] = true;
+    }
+
+    private function markFinishedRequest(ResponseInterface $response): void
+    {
+        unset($this->runningRequests[(string) $response->getInfo('user_data')]);
+    }
+
     /**
      * @param array<ResponseInterface> $responses
      */
@@ -336,10 +350,10 @@ final class Escargot
             $this->getEventDispatcher()->dispatch($event);
 
             if ($event->responseWasCanceled() || $chunk->isLast()) {
-                --$this->runningRequests;
+                $this->markFinishedRequest($response);
             }
         } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $exception) {
-            --$this->runningRequests;
+            $this->markFinishedRequest($response);
             $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $exception, $response));
         }
     }
@@ -379,14 +393,13 @@ final class Escargot
             }
 
             try {
-                $responses[] = $this->getClient()->request('GET', (string) $crawlUri->getUri(), [
+                $response = $this->getClient()->request('GET', (string) $crawlUri->getUri(), [
                     'user_data' => $crawlUri,
                 ]);
-                ++$this->runningRequests;
-                ++$this->requestsSent;
+                $responses[] = $response;
+                $this->markGoingToRequest($response);
             } catch (TransportExceptionInterface $exception) {
-                --$this->runningRequests;
-
+                $this->markFinishedRequest($response);
                 $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $exception));
             }
         }
@@ -401,6 +414,6 @@ final class Escargot
 
     private function isMaxConcurrencyReached(): bool
     {
-        return $this->runningRequests >= $this->concurrency;
+        return \count($this->runningRequests) >= $this->concurrency;
     }
 }
