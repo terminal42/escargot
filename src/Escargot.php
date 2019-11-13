@@ -123,6 +123,15 @@ final class Escargot
         $this->userAgent = self::DEFAULT_USER_AGENT;
     }
 
+    public function __clone()
+    {
+        foreach ($this->subscribers as $subscriber) {
+            if ($subscriber instanceof EscargotAwareInterface) {
+                $subscriber->setEscargot($this);
+            }
+        }
+    }
+
     public function getUserAgent(): string
     {
         return $this->userAgent;

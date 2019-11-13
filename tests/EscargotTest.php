@@ -23,6 +23,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
+use Terminal42\Escargot\EscargotAwareInterface;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
@@ -55,6 +56,13 @@ class EscargotTest extends TestCase
         $queue = new InMemoryQueue();
 
         $escargot = Escargot::create($baseUris, $queue);
+
+        $subscriber = $this->createMock([SubscriberInterface::class, EscargotAwareInterface::class]);
+        $subscriber
+            ->expects($this->exactly(4))
+            ->method('setEscargot');
+
+        $escargot->addSubscriber($subscriber);
 
         $escargot = $escargot->withConcurrency(15);
         $escargot = $escargot->withMaxRequests(500);
