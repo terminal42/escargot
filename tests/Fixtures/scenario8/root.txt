@@ -2,6 +2,7 @@ https://www.terminal42.ch/
 
 HTTP/2.0 200 OK
 content-type: text/html; charset=UTF-8
+x-robots-tag: nofollow
 
 <html>
 <head>

@@ -15,21 +15,18 @@ namespace Terminal42\Escargot\Tests;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\Test\TestLogger;
-use Symfony\Component\EventDispatcher\EventDispatcher;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
-use Terminal42\Escargot\Event\ResponseEvent;
-use Terminal42\Escargot\EventSubscriber\HtmlCrawlerSubscriber;
-use Terminal42\Escargot\EventSubscriber\MaxDepthSubscriber;
-use Terminal42\Escargot\EventSubscriber\MustMatchContentTypeSubscriber;
-use Terminal42\Escargot\EventSubscriber\RobotsSubscriber;
 use Terminal42\Escargot\Queue\InMemoryQueue;
+use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
+use Terminal42\Escargot\Subscriber\RobotsSubscriber;
+use Terminal42\Escargot\Subscriber\SubscriberInterface;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
 
 class EscargotTest extends TestCase
@@ -43,7 +40,6 @@ class EscargotTest extends TestCase
         $escargot = Escargot::create($baseUris, $queue);
 
         $this->assertInstanceOf(InMemoryQueue::class, $escargot->getQueue());
-        $this->assertInstanceOf(EventDispatcher::class, $escargot->getEventDispatcher());
         $this->assertInstanceOf(HttpClientInterface::class, $escargot->getClient());
 
         $this->assertNotEmpty($escargot->getJobId());
@@ -60,15 +56,13 @@ class EscargotTest extends TestCase
 
         $escargot = Escargot::create($baseUris, $queue);
 
-        $eventDispatcher = $this->createMock(EventDispatcherInterface::class);
-
         $escargot = $escargot->withConcurrency(15);
         $escargot = $escargot->withMaxRequests(500);
-        $escargot = $escargot->withEventDispatcher($eventDispatcher);
+        $escargot = $escargot->withMaxDepth(10);
 
         $this->assertSame(15, $escargot->getConcurrency());
         $this->assertSame(500, $escargot->getMaxRequests());
-        $this->assertSame($eventDispatcher, $escargot->getEventDispatcher());
+        $this->assertSame(10, $escargot->getMaxDepth());
     }
 
     public function testEmptyBaseUriCollection(): void
@@ -122,24 +116,22 @@ class EscargotTest extends TestCase
 
         $escargot = Escargot::create($baseUris, $queue, new MockHttpClient($responseFactory));
 
-        $escargot->addSubscriber(new MustMatchContentTypeSubscriber('text/html'));
-        $escargot->addSubscriber(new RobotsSubscriber());
-
         if (0 !== \count($options)) {
             if (\array_key_exists('max_requests', $options)) {
                 $escargot = $escargot->withMaxRequests((int) $options['max_requests']);
             }
             if (\array_key_exists('max_depth', $options)) {
-                $escargot->addSubscriber(new MaxDepthSubscriber((int) $options['max_depth']));
+                $escargot = $escargot->withMaxDepth((int) $options['max_depth']);
             }
         }
-
-        // Parses HTML and adds the links to the queue
-        $escargot->addSubscriber(new HtmlCrawlerSubscriber());
 
         // Register a test logger which then allows us to very easily assert what's happening based on the logs
         $logger = new TestLogger();
         $escargot = $escargot->withLogger($logger);
+
+        // Add subscribers
+        $escargot->addSubscriber(new RobotsSubscriber());
+        $escargot->addSubscriber(new HtmlCrawlerSubscriber());
 
         // We also add a subscriber that shall log all the successful requests
         $collector = $this->getSuccessfulResponseCollectorSubscriber();
@@ -176,9 +168,9 @@ class EscargotTest extends TestCase
         }
     }
 
-    private function getSuccessfulResponseCollectorSubscriber(): EventSubscriberInterface
+    private function getSuccessfulResponseCollectorSubscriber(): SubscriberInterface
     {
-        return new class() implements EventSubscriberInterface {
+        return new class() implements SubscriberInterface {
             private $uris = [];
 
             public function getUris(): array
@@ -186,24 +178,23 @@ class EscargotTest extends TestCase
                 return $this->uris;
             }
 
-            public function onResponse(ResponseEvent $event): void
+            public function shouldRequest(CrawlUri $crawlUri, string $currentDecision): string
             {
-                if (!$event->getCurrentChunk()->isLast()) {
-                    return;
-                }
-
-                if (200 !== $event->getResponse()->getStatusCode()) {
-                    return;
-                }
-
-                $this->uris[] = $event->getCrawlUri();
+                return $currentDecision;
             }
 
-            public static function getSubscribedEvents()
+            public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk, string $currentDecision): string
             {
-                return [
-                    ResponseEvent::class => 'onResponse',
-                ];
+                if (200 === $response->getStatusCode()) {
+                    $this->uris[] = $crawlUri;
+                }
+
+                return $currentDecision;
+            }
+
+            public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
+            {
+                // noop
             }
         };
     }

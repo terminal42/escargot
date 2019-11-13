@@ -15,9 +15,6 @@ namespace Terminal42\Escargot;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
-use Symfony\Component\EventDispatcher\EventDispatcher;
-use Symfony\Component\EventDispatcher\EventDispatcherInterface;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
@@ -26,12 +23,11 @@ use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
-use Terminal42\Escargot\Event\FinishedCrawlingEvent;
-use Terminal42\Escargot\Event\PreRequestEvent;
-use Terminal42\Escargot\Event\RequestExceptionEvent;
-use Terminal42\Escargot\Event\ResponseEvent;
 use Terminal42\Escargot\Exception\InvalidJobIdException;
 use Terminal42\Escargot\Queue\QueueInterface;
+use Terminal42\Escargot\Subscriber\ExceptionSubscriberInterface;
+use Terminal42\Escargot\Subscriber\FinishedCrawlingSubscriberInterface;
+use Terminal42\Escargot\Subscriber\SubscriberInterface;
 
 final class Escargot
 {
@@ -58,14 +54,14 @@ final class Escargot
     private $client;
 
     /**
-     * @var EventDispatcherInterface|null
-     */
-    private $eventDispatcher;
-
-    /**
      * @var LoggerInterface|null
      */
     private $logger;
+
+    /**
+     * @var SubscriberInterface[]
+     */
+    private $subscribers = [];
 
     /**
      * @var string
@@ -99,6 +95,15 @@ final class Escargot
     private $concurrency = 10;
 
     /**
+     * Maximum depth Escargot
+     * is going to crawl.
+     * 0 means no limit.
+     *
+     * @var int
+     */
+    private $maxDepth = 0;
+
+    /**
      * @var int
      */
     private $requestsSent = 0;
@@ -116,23 +121,6 @@ final class Escargot
         $this->baseUris = $baseUris;
 
         $this->userAgent = self::DEFAULT_USER_AGENT;
-    }
-
-    public function withEventDispatcher(EventDispatcherInterface $eventDispatcher): self
-    {
-        $new = clone $this;
-        $new->eventDispatcher = $eventDispatcher;
-
-        return $new;
-    }
-
-    public function getEventDispatcher(): EventDispatcherInterface
-    {
-        if (null === $this->eventDispatcher) {
-            $this->eventDispatcher = new EventDispatcher();
-        }
-
-        return $this->eventDispatcher;
     }
 
     public function getUserAgent(): string
@@ -177,6 +165,19 @@ final class Escargot
         return $new;
     }
 
+    public function getMaxDepth(): int
+    {
+        return $this->maxDepth;
+    }
+
+    public function withMaxDepth(int $maxDepth): self
+    {
+        $new = clone $this;
+        $new->maxDepth = $maxDepth;
+
+        return $new;
+    }
+
     public function withLogger(LoggerInterface $logger): self
     {
         $new = clone $this;
@@ -185,9 +186,13 @@ final class Escargot
         return $new;
     }
 
-    public function addSubscriber(EventSubscriberInterface $subscriber): self
+    public function addSubscriber(SubscriberInterface $subscriber): self
     {
-        $this->getEventDispatcher()->addSubscriber($subscriber);
+        if ($subscriber instanceof EscargotAwareInterface) {
+            $subscriber->setEscargot($this);
+        }
+
+        $this->subscribers[] = $subscriber;
 
         return $this;
     }
@@ -268,37 +273,44 @@ final class Escargot
 
     public function crawl(): void
     {
-        // We're finished if we have reached the max requests or the queue is empty
-        // and no request is being processed anymore
-        if (0 === \count($this->runningRequests)
-            && ($this->isMaxRequestsReached() || null === $this->queue->getNext($this->jobId))
-        ) {
-            $this->log(LogLevel::DEBUG, sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()));
+        while (true) {
+            $responses = $this->prepareResponses();
 
-            $this->getEventDispatcher()->dispatch(new FinishedCrawlingEvent($this));
+            if (0 === \count($this->runningRequests) && 0 === \count($responses)) {
+                break;
+            }
 
-            return;
+            $this->processResponses($responses);
         }
 
-        $this->processResponses($this->prepareResponses());
+        $this->log(LogLevel::DEBUG, sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()));
+
+        foreach ($this->subscribers as $subscriber) {
+            if ($subscriber instanceof FinishedCrawlingSubscriberInterface) {
+                $subscriber->finishedCrawling();
+            }
+        }
     }
 
     /**
      * Adds an URI to the queue if not present already.
      *
-     * @return bool True if it was added and false if it existed already before
+     * @return CrawlUri The new CrawlUri instance
      */
-    public function addUriToQueue(UriInterface $uri, CrawlUri $foundOn, bool $processed = false): bool
+    public function addUriToQueue(UriInterface $uri, CrawlUri $foundOn, bool $processed = false): CrawlUri
     {
-        $crawlUrl = $this->queue->get($this->jobId, $uri);
-        if (null === $crawlUrl) {
-            $crawlUrl = new CrawlUri($uri, $foundOn->getLevel() + 1, $processed, $foundOn->getUri());
-            $this->queue->add($this->jobId, $crawlUrl);
-
-            return true;
+        $crawlUri = $this->getCrawlUri($uri);
+        if (null === $crawlUri) {
+            $crawlUri = new CrawlUri($uri, $foundOn->getLevel() + 1, $processed, $foundOn->getUri());
+            $this->queue->add($this->jobId, $crawlUri);
         }
 
-        return false;
+        return $crawlUri;
+    }
+
+    public function getCrawlUri(UriInterface $uri): ?CrawlUri
+    {
+        return $this->queue->get($this->jobId, $uri);
     }
 
     /**
@@ -315,18 +327,27 @@ final class Escargot
         $this->logger->log($level, $message, $context);
     }
 
-    private function markGoingToRequest(ResponseInterface $response): void
+    private function startRequest(ResponseInterface $response): void
     {
-        if (!isset($this->runningRequests[(string) $response->getInfo('user_data')])) {
+        $uri = $this->getUriFromResponse($response);
+
+        if (!isset($this->runningRequests[$uri])) {
             ++$this->requestsSent;
         }
 
-        $this->runningRequests[(string) $response->getInfo('user_data')] = true;
+        $this->runningRequests[$uri] = true;
     }
 
-    private function markFinishedRequest(ResponseInterface $response): void
+    private function finishRequest(ResponseInterface $response): void
     {
-        unset($this->runningRequests[(string) $response->getInfo('user_data')]);
+        $uri = $this->getUriFromResponse($response);
+
+        unset($this->runningRequests[$uri]);
+    }
+
+    private function getUriFromResponse(ResponseInterface $response): string
+    {
+        return (string) $response->getInfo('user_data')->getUri();
     }
 
     /**
@@ -334,27 +355,49 @@ final class Escargot
      */
     private function processResponses(array $responses): void
     {
+        // Mark all responses before we start to stream, otherwise the internal counter is only
+        // updated once the first chunk is arrived which might be too late as in between there
+        // might be already new requests being created.
+        foreach ($responses as $response) {
+            $this->startRequest($response);
+        }
+
         foreach ($this->getClient()->stream($responses) as $response => $chunk) {
             $this->processResponseChunk($response, $chunk);
         }
-
-        // Continue crawling
-        $this->crawl();
     }
 
     private function processResponseChunk(ResponseInterface $response, ChunkInterface $chunk): void
     {
-        try {
-            // Dispatch event
-            $event = new ResponseEvent($this, $response, $chunk);
-            $this->getEventDispatcher()->dispatch($event);
+        /** @var CrawlUri $crawlUri */
+        $crawlUri = $response->getInfo('user_data');
 
-            if ($event->responseWasCanceled() || $chunk->isLast()) {
-                $this->markFinishedRequest($response);
+        try {
+            if ($chunk->isFirst()) {
+                $needsContent = SubscriberInterface::DECISION_ABSTAIN;
+                foreach ($this->subscribers as $subscriber) {
+                    $needsContent = $subscriber->needsContent($crawlUri, $response, $chunk, $needsContent);
+                }
+
+                if (SubscriberInterface::DECISION_POSITIVE !== $needsContent) {
+                    $response->cancel();
+                    $this->finishRequest($response);
+                }
+            }
+
+            if ($chunk->isLast()) {
+                foreach ($this->subscribers as $subscriber) {
+                    $subscriber->onLastChunk($crawlUri, $response, $chunk);
+                }
+                $this->finishRequest($response);
             }
         } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $exception) {
-            $this->markFinishedRequest($response);
-            $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $exception, $response));
+            foreach ($this->subscribers as $subscriber) {
+                if ($subscriber instanceof ExceptionSubscriberInterface) {
+                    $subscriber->onException($exception, $response);
+                }
+            }
+            $this->finishRequest($response);
         }
     }
 
@@ -378,12 +421,33 @@ final class Escargot
             $crawlUri->markProcessed();
             $this->queue->add($this->jobId, $crawlUri);
 
-            // Dispatch event
-            $event = new PreRequestEvent($this, $crawlUri);
-            $this->getEventDispatcher()->dispatch($event);
+            // Skip non http URIs
+            if (!\in_array($crawlUri->getUri()->getScheme(), ['http', 'https'], true)) {
+                $this->log(
+                    LogLevel::DEBUG,
+                    $crawlUri->createLogMessage('Skipped because it\'s not a valid http(s) URI.')
+                );
+                continue;
+            }
 
-            // A subscriber said this crawlUri shall not be requested
-            if ($event->wasRequestAborted()) {
+            // Stop crawling if we have reached max depth
+            if (0 !== $this->maxDepth && $this->maxDepth <= $crawlUri->getLevel()) {
+                $this->log(
+                    LogLevel::DEBUG,
+                    $crawlUri->createLogMessage('Will not crawl as max depth is reached!')
+                );
+                continue;
+            }
+
+            // Check if any subscriber wants this crawlUri to be requested
+            $doRequest = SubscriberInterface::DECISION_ABSTAIN;
+
+            foreach ($this->subscribers as $subscriber) {
+                $doRequest = $subscriber->shouldRequest($crawlUri, $doRequest);
+            }
+
+            // No subscriber wanted the URI to be requested
+            if (SubscriberInterface::DECISION_POSITIVE !== $doRequest) {
                 continue;
             }
 
@@ -397,10 +461,12 @@ final class Escargot
                     'user_data' => $crawlUri,
                 ]);
                 $responses[] = $response;
-                $this->markGoingToRequest($response);
             } catch (TransportExceptionInterface $exception) {
-                $this->markFinishedRequest($response);
-                $this->getEventDispatcher()->dispatch(new RequestExceptionEvent($this, $exception));
+                foreach ($this->subscribers as $subscriber) {
+                    if ($subscriber instanceof ExceptionSubscriberInterface) {
+                        $subscriber->onException($exception, $response);
+                    }
+                }
             }
         }
 

@@ -1,4 +1,3 @@
-[URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/)] Skipped URI "https://www.terminal42.ch/foobar3" because the "rel" attribute contains "nofollow".
-[URI: https://www.terminal42.ch/foobar2 (Level: 2, Processed: yes, Found on: https://www.terminal42.ch/foobar)] Skipped URI "https://www.terminal42.ch/foobar3" because the "rel" attribute contains "nofollow".
-Finished crawling! Sent 3 request(s).
-
+[URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root, Tags: nofollow)] Added the "nofollow" tag because the X-Robots-Tag header contained "nofollow".
+[URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: none)] Do not request because when the crawl URI was found, the robots information disallowed following this URI.
+Finished crawling! Sent 1 request(s).

@@ -1,3 +1,3 @@
-[URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root)] Skipped URI "https://www.terminal42.ch/foobar" because the "rel" attribute contains "nofollow".
-[URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root)] Skipped URI "https://www.terminal42.ch/image.jpg" because the "type" attribute does not contain "text/html".
+[URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: rel-nofollow)] Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".
+[URI: https://www.terminal42.ch/image.jpg (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: no-txt-html-type)] Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".
 Finished crawling! Sent 1 request(s).

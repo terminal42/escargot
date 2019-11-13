@@ -109,7 +109,7 @@ final class DoctrineQueue implements QueueInterface
     public function get(string $jobId, UriInterface $uri): ?CrawlUri
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, processed, found_on')
+            ->select('uri, level, processed, found_on, tags')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->andWhere('uri = :uri')
@@ -139,6 +139,7 @@ final class DoctrineQueue implements QueueInterface
                     'level' => ':level',
                     'found_on' => ':foundOn',
                     'processed' => ':processed',
+                    'tags' => ':tags',
                 ])
                 ->setParameter(':level', (int) $crawlUri->getLevel(), Type::INTEGER)
                 ->setParameter(':foundOn', $crawlUri->getFoundOn(), Type::STRING);
@@ -146,6 +147,7 @@ final class DoctrineQueue implements QueueInterface
             $queryBuilder
                 ->update($this->tableName)
                 ->set('processed', ':processed')
+                ->set('tags', ':tags')
                 ->where('job_id = :jobId')
                 ->andWhere('uri = :uri');
         }
@@ -153,7 +155,8 @@ final class DoctrineQueue implements QueueInterface
         $queryBuilder
             ->setParameter(':jobId', $jobId, Type::STRING)
             ->setParameter(':uri', (string) $crawlUri->getUri(), Type::STRING)
-            ->setParameter(':processed', $crawlUri->isProcessed(), Type::BOOLEAN);
+            ->setParameter(':processed', $crawlUri->isProcessed(), Type::BOOLEAN)
+            ->setParameter(':tags', implode(',', $crawlUri->getTags()), Type::TEXT);
 
         $queryBuilder->execute();
     }
@@ -161,7 +164,7 @@ final class DoctrineQueue implements QueueInterface
     public function getNext(string $jobId, int $skip = 0): ?CrawlUri
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, processed, found_on')
+            ->select('uri, level, processed, found_on, tags')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->andWhere('processed = :processed')
@@ -212,7 +215,7 @@ final class DoctrineQueue implements QueueInterface
     public function getAll(string $jobId): \Generator
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, processed, found_on')
+            ->select('uri, level, processed, found_on, tags')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->orderBy('id', 'ASC')
@@ -252,6 +255,9 @@ final class DoctrineQueue implements QueueInterface
         $table->addColumn('processed', Type::BOOLEAN)
             ->setNotnull(true);
 
+        $table->addColumn('tags', Type::TEXT)
+            ->setNotnull(false);
+
         $table->setPrimaryKey(['id']);
         $table->addIndex(['job_id']);
         $table->addIndex(['level']);
@@ -272,6 +278,14 @@ final class DoctrineQueue implements QueueInterface
             $foundOn = new Uri($data['found_on']);
         }
 
-        return new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
+        $crawlUri = new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
+
+        if ($data['tags']) {
+            foreach (explode(',', $data['tags']) as $tag) {
+                $crawlUri->addTag($tag);
+            }
+        }
+
+        return $crawlUri;
     }
 }

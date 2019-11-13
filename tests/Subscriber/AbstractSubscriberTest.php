@@ -10,7 +10,7 @@ declare(strict_types=1);
  * @license    MIT
  */
 
-namespace Terminal42\Escargot\Tests\EventSubscriber;
+namespace Terminal42\Escargot\Tests\Subscriber;
 
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
