@@ -168,20 +168,20 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
         try {
             $response = $this->escargot->getClient()->request('GET', (string) $robotsTxtUri);
+
+            if (200 !== $response->getStatusCode()) {
+                return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
+            }
+
+            $robotsTxtContent = $response->getContent();
+
+            $parser = new Parser();
+            $parser->setSource($robotsTxtContent);
+
+            return $this->robotsTxtCache[(string) $robotsTxtUri] = $parser->getFile();
         } catch (TransportExceptionInterface $exception) {
             return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
         }
-
-        if (null === $response || 200 !== $response->getStatusCode()) {
-            return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
-        }
-
-        $robotsTxtContent = $response->getContent();
-
-        $parser = new Parser();
-        $parser->setSource($robotsTxtContent);
-
-        return $this->robotsTxtCache[(string) $robotsTxtUri] = $parser->getFile();
     }
 
     private function getRobotsTxtUri(CrawlUri $crawlUri): UriInterface
@@ -198,19 +198,19 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         foreach ($robotsTxt->getNonGroupDirectives()->getByField('sitemap')->getDirectives() as $directive) {
             try {
                 $response = $this->escargot->getClient()->request('GET', $directive->getValue()->get());
+
+                if (200 !== $response->getStatusCode()) {
+                    continue;
+                }
+
+                $urls = new \SimpleXMLElement($response->getContent());
+
+                foreach ($urls as $url) {
+                    // Add it to the queue if not present already
+                    $this->escargot->addUriToQueue(new Uri((string) $url->loc), $foundOn);
+                }
             } catch (TransportExceptionInterface $exception) {
                 continue;
-            }
-
-            if (null === $response || 200 !== $response->getStatusCode()) {
-                continue;
-            }
-
-            $urls = new \SimpleXMLElement($response->getContent());
-
-            foreach ($urls as $url) {
-                // Add it to the queue if not present already
-                $this->escargot->addUriToQueue(new Uri((string) $url->loc), $foundOn);
             }
         }
     }
