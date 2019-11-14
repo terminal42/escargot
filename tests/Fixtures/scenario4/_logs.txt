@@ -1,3 +1,3 @@
-[URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root, Tags: nofollow)] Added the "nofollow" tag because the <meta name="robots"> tag contained "nofollow".
-[URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: none)] Do not request because when the crawl URI was found, the robots information disallowed following this URI.
-Finished crawling! Sent 1 request(s).
+[Terminal42\Escargot\Subscriber\RobotsSubscriber] [URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root, Tags: nofollow)] Added the "nofollow" tag because the <meta name="robots"> tag contained "nofollow".
+[Terminal42\Escargot\Subscriber\RobotsSubscriber] [URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: none)] Do not request because when the crawl URI was found, the robots information disallowed following this URI.
+[Terminal42\Escargot\Escargot] Finished crawling! Sent 1 request(s).
