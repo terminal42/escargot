@@ -1,1 +1,2 @@
-Here we test if the skipped URIs due to the URI filter do not trigger the events multiple times.
+This scenario tests if we're correctly NOT following the second request.
+It is disallowed by the X-Robots-Tag header.

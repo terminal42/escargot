@@ -9,7 +9,7 @@ way you prefer based on Symfony components.
 
 There are so many different implementations in so many programming languages, right?
 Well, the ones I found in PHP did not really live up to my personal quality standards and also I wanted something
-that's built on top of the Symfony HttpClient component and is not bound to crawl websites (HTML) only but can
+that's built on top of the [Symfony HttpClient][Symfony_HTTPClient] component and is not bound to crawl websites (HTML) only but can
 be used as the foundation for anything you may want to crawl. Hence, yet another library.
 
 ### What about that name «Escargot»?
@@ -92,7 +92,7 @@ $client = new CurlHttpClient(['custom' => 'options']); // optional
 $escargot = Escargot::createFromJobId($jobId, $queue, $client);
 ```
    
-### The different queue implementations
+#### The different queue implementations
 
 As explained before, the queue is an essential part of `Escargot` because it keeps track of all the URIs that have been
 requested already but it is also responsible to pick up where one left based on a given job ID.
@@ -109,7 +109,7 @@ This library ships with the following implementations for you to use:
   from being hammered by using `$queue = new LazyQueue(new InMemoryQueue(), new DoctrineQueue())`. That way you get
   persistence (by calling `$queue->commit($jobId)` once done) combined with efficiency. 
 
-### Start crawling
+#### Start crawling
 
 After we have our `Escargot` instance, we can start crawling which we do by calling the `crawl()` method:
 
@@ -119,43 +119,27 @@ After we have our `Escargot` instance, we can start crawling which we do by call
 $escargot->crawl();
 ```
 
-### Events
+#### Subscribers
 
 You might be wondering how you can access the results of your crawl process. In `Escargot`, `crawl()` does not return
-anything but instead, everything is event based which lets you decide exactly on what you want to do with the results
-that are collected along the way.
-Currently there are `4` different events:
+anything but instead, everything is passed on to subscribers which lets you decide exactly on what you want to do with the
+results that are collected along the way.
+The flow of every request executed by `Escargot` is as follows which maps to the corresponding methods in the subscribers:
 
-* `PreRequestEvent`
+1. Decide whether a request should be sent at all (if no subscriber requests the request, none is executed):
+   
+   `SubscriberInterface:shouldRequest()`
+   
+2. If a request was sent, wait for the first response chunk and decide whether the whole response body should be loaded
+   
+   `SubscriberInterface:needsContent()`
+   
+3. If the body was requested, the data is passed on to the subscribers on the last response chunk that arrives:
+   
+   `SubscriberInterface:onLastChunk()`
 
-  This event is dispatched before a request is dispatched.
-  You have access to `Escargot` itself and the `CrawlUri` which is about to be requested. You may abort this request
-  by calling `$event->abortRequest()` which will also stop event propagation.
-  
-* `ResponseEvent`
-
-  The probably most important event for you as it is dispatched whenever a response chunk (!) arrived.
-  You have access to `Escargot` itself, the resulting instance of `ResponseInterface`, the current `ChunkInterface` and
-  also the `CrawlUri` which  contains the URI that was crawled and the information on what level and on what URI it was found.
-
-* `FinishedCrawlingEvent`
-
-  This event is dispatched when crawling has finished because either the maximum configured requests have been reached 
-  (see «Configuration») or the queue is empty, meaning there's nothing left to crawl.
-  You have access to `Escargot` itself which e.g. allows you to ask for the total requests sent
-  (`Escargot::getRequestsSent()`).
-  
-* `RequestExceptionEvent`
-
-  This event is dispatched when the Symfony HttpClient emits an exception.
-  Apart from `Escargot` itself you have access to the `ExceptionInterface` instance (so e.g. `TransportExceptionInterface`
-  but also `ClientExceptionInterface` etc.) and the `ResponseInterface` instance if there is any (if the exception occurs
-  during initiation of the request, there won't be any response).  
-
-### Event subscribers
-
-Listening to these events is accomplished using the Symfony EventDispatcher and its `EventSubscriberInterface`.
-This listener class can then be registered using `Escargot::addSubscriber()`:
+Adding a subscriber is accomplished by implementing the `SubscriberInterface` and registering it
+using `Escargot::addSubscriber()`:
 
 ```php
 <?php
@@ -163,103 +147,132 @@ This listener class can then be registered using `Escargot::addSubscriber()`:
 $escargot->addSubscriber(new MySubscriber());
 ```
 
-#### General subscribers
+According to the flow of every request, the `SubscriberInterface` asks you to implement `3` methods:
 
-`Escargot` ships with two general subscribers that might be useful for you:
+*   `shouldRequest(CrawlUri $crawlUri, string $currentDecision): string;`
 
-* The `MustMatchContentTypeSubscriber`
+    This method is called before a request is executed. Note that the logic is inverted: If none of the registered
+    subscribers asks Escargot to execute the request, it's not going to be requested. That allows for a lot more
+    flexibility. If it was the other way around, one subscriber could cancel the request and thus cause another
+    subscriber to not get any results. You may return one of the following `3` constants:
+    
+    * `SubscriberInterface::DECISION_POSITIVE`
+    
+    If you return a positive decision. Escargot will request the provided `CrawlUri` instance.
+    
+    * `SubscriberInterface::DECISION_NEGATIVE`
+    
+    If you return a negative decision. Escargot will not request the provided `CrawlUri` instance.
 
-  This subscriber allows you to cancel responses that do not match a desired `Content-Type` header on the first chunk, so
-  you don't have to wait for the body to arrive. So this subscriber listens to the `ResponseEvent`.
-  You may use it to e.g. limit your crawler to `application/json` responses only:
-  
-  ```php
-  <?php
-  
-  use Terminal42\Escargot\EventSubscriber\MustMatchContentTypeSubscriber;
-  
-  $escargot->addSubscriber(new MustMatchContentTypeSubscriber('application/json'));
-  ```
-  
-* The `MaxDepthSubscriber`
+    * `SubscriberInterface::DECISION_ABSTAIN`
+    
+    If you return an abstain decision, Escargot will not request the provided `CrawlUri` instance.
+    This likely never the return value you're looking for but the initial state before any subscriber is called.
+    If you don't want to interfere with what previous subscribers decided, return the provided `$currentDecision`.
 
-  This subscriber allows you to not even send requests if a certain maximum depth is reached. For this to work, this
-  subscriber listens to the `PreRequestEvent`.
-  You may use it like this:
-  
-  ```php
-  <?php
-  
-  use Terminal42\Escargot\EventSubscriber\MaxDepthSubscriber;
-  
-  $escargot->addSubscriber(new MaxDepthSubscriber(5)); // Will limit requests to level 5
-  ```
-  
+*   `needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk, string $currentDecision): string;`
+
+    This method is called on the first chunk of a request that arrives. You have access to all the headers now but the content
+    of the response might not yet be loaded. Note that the logic is inverted: If none of the
+    registered subscribers asks Escargot to provide the content, it's going to cancel the request and thus early abort.
+    Again you may return one of the following `3` constants:
+    
+    * `SubscriberInterface::DECISION_POSITIVE`
+    
+    If you return a positive decision. Escargot will continue to request and serve the content on `onLastChunk()`.
+    
+    * `SubscriberInterface::DECISION_NEGATIVE`
+    
+    If you return a negative decision. Escargot will abort the request and not serve the content on `onLastChunk()`.
+
+    * `SubscriberInterface::DECISION_ABSTAIN`
+    
+    If you return an abstain decision, Escargot will abort the request and not serve the content on `onLastChunk()`.
+    This likely never the return value you're looking for but the initial state before any subscriber is called.
+    If you don't want to interfere with what previous subscribers decided, return the provided `$currentDecision`.
+
+*   `onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void;`
+
+    If one of the subscribers returned a positive decision during the `needsContent()` phase, **all** of the subscribers
+    will receive the content of the response. The reason for this design is that you may have a listener that doesn't
+    require to have the whole content loaded but still wants to analyze it in case any other subscriber requested the
+    full response content.
+    
+
+There are `2` other interfaces which you might want to integrate but you don't have to:
+
+*   `ExceptionSubscriberInterface::onException(ExceptionInterface $exception, ResponseInterface $response): void;`
+
+    In case there's an exception during the request execution (see the [Symfony HttpClient docs for more information][Symfony_HTTPClient])
+    it's caught and passed on to subscribers implementing this interface.
+
+*   `FinishedCrawlingSubscriberInterface::finishedCrawling(): void;`
+
+    Once crawling is finished (that does not mean there's no pending queue items, you may also have reached the maximum
+    number of requests), all subscribers implementing this interface will be called.
+
+
+#### Tags
+
+Sometimes you may want to add meta information to any `CrawlUri`  instance so you can let other subscribers decide
+what they want to do with this information or it may be relevant during another request.
+The `RobotsSubscriber` for instance, tags `CrawlUri` instances when they contained a `<meta name="robots" content="nofollow">`
+in the body or the corresponding `X-Robots-Tag` header was set. All the links found on this URI are then not followed
+which happens during the next `shouldRequest()` call.
+
 #### Crawling websites (HTML crawler)
 
 When people read the word «crawl» or «crawler» they usually immediately think of crawling websites. Granted, this is
 also the main purpose of this library but if you think about it, nothing you have learnt about `Escargot` so far was
-related to crawling websites or HTML. `Escargot` can crawl anything that's based on HTTP and you may use the core events
-to extract e.g. new URIs from JSON responses and continue from there.
+related to crawling websites or HTML. `Escargot` can crawl anything that's based on HTTP and you could write a subscriber
+that extracts e.g. new URIs from JSON responses and continue from there.
 
 Awesome isn't it?
 
-To turn our `Escargot` instance into a proper web crawler, we need to register additional subscribers to the events
-which will e.g. extract links from the HTML content and add those to the queue:
-
-* The `HtmlCrawlerSubscriber`
-
-  This subscriber analyzes the HTML and then searches for links and adds those to the queue. For that to work, it
-  listens to the `ResponseEvent`. Of course it doesn't just add those links blindly but instead follows quite a few
-  rules:
-  
-  * The response may not be empty and `204 No Content` responses are irgnored.
-  * The response is not processed if the response `X-Robots-Tag` header contains `nofollow`.
-  * The response is not processed if the body contains a `<meta name="robots">` tag which contains `nofollow`.
-  * Links not starting by either `http://` or `https://` are skipped.
-  * Links with the attribute `rel="nofollow"` are skipped.
-  * Links with the attribute `type` not equal to `text/html` are skipped.
-  * Links that point to any host which is not part of the `BaseUriCollection` are skipped. 
-  
-  You may use it like this:
-  
-  ```php
-  <?php
-  
-  use Terminal42\Escargot\EventSubscriber\HtmlCrawlerSubscriber;
-  
-  $escargot->addSubscriber(new HtmlCrawlerSubscriber());
-  ```
+To turn our `Escargot` instance into a proper web crawler, we can register the `2` following subscribers shipped
+by default:
   
 * The `RobotsSubscriber`
 
-  This subscriber early aborts responses with an `X-Robots-Tag` header that contains `noindex`. It also  analyzes the
-  `robots.txt` and looks for `Sitemap` entries, requests those and adds all the found URIs to the queue:
+  This subscriber handles `robots.txt` content, the `X-Robots-Tag` header and the `<meta name="robots">` HTML tag.
+  So it
+  
+  * Sets `CrawlUri` tags according to the `X-Robots-Tag` header.
+  * Sets `CrawlUri` tags according to the `<meta name="robots">` HTML tag.
+  * Analyzes `Sitemap` entries in the `robots.txt` and adds the URIs found there to the queue.
+  * Handles disallowed paths based on the `robots.txt` content.
+  
+  By default, this subscriber will never cause any requests to be executed because it doesn't care if anything is
+  requested. But if it is, it wants to add meta information (tags) on all the found `CrawlUri` instances.
+
+* The `HtmlCrawlerSubscriber`
+
+  This subscriber analyzes the HTML and then searches for links and adds those to the queue.
+  It
     
-  ```php
-  <?php
-  
-  use Terminal42\Escargot\EventSubscriber\RobotsSubscriber;
-  
-  $escargot->addSubscriber(new RobotsSubscriber());
-  ```
-  
-So to create a full-fledged web crawler, you need both of these subscribers plus the 
-`MustMatchContentTypeSubscriber`:
+  * Sets `CrawlUri` tags if the link contained the `rel="nofollow` attribute.
+  * Sets `CrawlUri` tags if the link contained the attribute `type` and the value was not equal to `text/html`.
+  * Sets `CrawlUri` tags if the link points to any host which is not part of the `BaseUriCollection`.
+ 
+  By default, this subscriber will ask for requests to be executed unless any previous subscriber has already returned
+  a negative decision on `shouldRequest()` in which case it will not overrule this decision.
+ 
+Using them is done like so:
 
 ```php
 <?php
 
-use Terminal42\Escargot\EventSubscriber\MustMatchContentTypeSubscriber;
-use Terminal42\Escargot\EventSubscriber\RobotsSubscriber;
-use Terminal42\Escargot\EventSubscriber\HtmlCrawlerSubscriber;
+use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
+use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 
-$escargot->addSubscriber(new MustMatchContentTypeSubscriber('text/html'));
 $escargot->addSubscriber(new RobotsSubscriber());
 $escargot->addSubscriber(new HtmlCrawlerSubscriber());
 ```
 
-#### Configuration
+You now have a full-fledged web crawler. It's up to you now to register additional subscribers to actually do something
+with the results.
+
+### Configuration
 
 There are different configurations you can apply to the `Escargot` instance:
 
@@ -282,18 +295,13 @@ There are different configurations you can apply to the `Escargot` instance:
 
    Returns a clone of the `Escargot` instance with an added delay between requests in microseconds. By default, there's
    no extra  delay. It can be useful to make sure `Escargot` does not run into some (D)DOS protection or similar issues.
-   
-* `Escargot::withEventDispatcher(EventDispatcherInterface $eventDispatcher): Escargot`
-
-   Returns a clone of the `Escargot` instance with your custom implementation of the `EventDispatcherInterface` in case
-   you don't want to use the default `EventDispatcher`.
 
 * `Escargot::withLogger(LoggerInterface $logger): Escargot`
 
    Returns a clone of the `Escargot` instance with your PSR-3 `Psr\Log\LoggerInterface` instance to gain more insight
    in what's happening in `Escargot`.
    
-## Roadmap / Ideas
+### Roadmap / Ideas
 
 * This is just an alpha version so please expect things to break. I'm going to follow SemVer for this library
   which is why we have 0.x version numbers for now unit I personally find it to be stable enough to release 
@@ -308,3 +316,5 @@ There are different configurations you can apply to the `Escargot` instance:
 * I'm a core dev member of [Contao, an open source CMS](https://contao.org). I would like to integrate `Escargot` there
   in one of the upcoming versions to improve the way search indexing is achieved. I guess you should know that I will
   likely not be tagging it stable before I've finished the integration but we'll see.
+
+[Symfony_HTTPClient]: https://symfony.com/doc/current/components/http_client.html

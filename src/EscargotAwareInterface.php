@@ -10,8 +10,9 @@ declare(strict_types=1);
  * @license    MIT
  */
 
-namespace Terminal42\Escargot\Event;
+namespace Terminal42\Escargot;
 
-final class FinishedCrawlingEvent extends AbstractEscargotEvent
+interface EscargotAwareInterface
 {
+    public function setEscargot(Escargot $escargot): void;
 }

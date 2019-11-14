@@ -1,2 +1,2 @@
-[URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/)] Will not crawl as max depth is reached!
-Finished crawling! Sent 1 request(s).
+[Terminal42\Escargot\Escargot] [URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: none)] Will not crawl as max depth is reached!
+[Terminal42\Escargot\Escargot] Finished crawling! Sent 1 request(s).

@@ -41,6 +41,11 @@ final class CrawlUri
      */
     private $foundOn = null;
 
+    /**
+     * @var array
+     */
+    private $tags = [];
+
     public function __construct(UriInterface $uri, int $level, bool $processed = false, ?UriInterface $foundOn = null)
     {
         $this->uri = self::normalizeUri($uri);
@@ -54,11 +59,12 @@ final class CrawlUri
 
     public function __toString(): string
     {
-        return sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s)',
+        return sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s, Tags: %s)',
             (string) $this->getUri(),
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',
-            (string) ($this->getFoundOn() ? $this->getFoundOn() : 'root')
+            (string) ($this->getFoundOn() ? $this->getFoundOn() : 'root'),
+            $this->getTags() ? implode(', ', $this->getTags()) : 'none'
         );
     }
 
@@ -101,6 +107,34 @@ final class CrawlUri
     public function getFoundOn(): ?UriInterface
     {
         return $this->foundOn;
+    }
+
+    public function getTags(): array
+    {
+        return array_keys($this->tags);
+    }
+
+    public function addTag(string $tag): self
+    {
+        if (false !== strpos($tag, ',')) {
+            throw new \InvalidArgumentException('Cannot use commas in tags.');
+        }
+
+        $this->tags[$tag] = true;
+
+        return $this;
+    }
+
+    public function hasTag(string $tag): bool
+    {
+        return isset($this->tags[$tag]);
+    }
+
+    public function removeTag(string $tag): self
+    {
+        unset($this->tags[$tag]);
+
+        return $this;
     }
 
     public static function normalizeUri(UriInterface $uri): UriInterface

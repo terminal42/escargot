@@ -130,10 +130,7 @@ class Scenario
     {
         return function ($method, $url, $options) {
             if (!isset($this->responses[$url])) {
-                throw new \RuntimeException(
-                    sprintf('A request to URI "%s" would be executed but no MockResponse was provided!',
-                    $url)
-                );
+                throw new \RuntimeException(sprintf('A request to URI "%s" would be executed but no MockResponse was provided!', $url));
             }
 
             return $this->responses[$url];
