@@ -137,6 +137,14 @@ final class Escargot
         return $this->userAgent;
     }
 
+    /**
+     * @return SubscriberInterface[]
+     */
+    public function getSubscribers(): array
+    {
+        return $this->subscribers;
+    }
+
     public function withUserAgent(string $userAgent): self
     {
         $new = clone $this;
