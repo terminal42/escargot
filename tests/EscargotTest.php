@@ -148,7 +148,13 @@ class EscargotTest extends TestCase
         $escargot->crawl();
 
         $filteredLogs = array_map(function (array $record) {
-            return $record['message'];
+            $message = $record['message'];
+
+            if (isset($record['context']['source'])) {
+                $message = sprintf('[%s] %s', $record['context']['source'], $message);
+            }
+
+            return $message;
         }, $logger->records);
 
         $this->assertSame($expectedLogs, $filteredLogs, $message);

@@ -292,7 +292,11 @@ final class Escargot
             $this->processResponses($responses);
         }
 
-        $this->log(\get_class($this), LogLevel::DEBUG, sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()));
+        $this->log(
+            LogLevel::DEBUG,
+            sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()),
+            ['source' => \get_class($this)]
+        );
 
         foreach ($this->subscribers as $subscriber) {
             if ($subscriber instanceof FinishedCrawlingSubscriberInterface) {
@@ -327,13 +331,11 @@ final class Escargot
      *
      * @param array<string,array|string|int> $context
      */
-    public function log(string $source, string $level, string $message, array $context = []): void
+    public function log(string $level, string $message, array $context = []): void
     {
         if (null === $this->logger) {
             return;
         }
-
-        $message = sprintf('[%s] %s', $source, $message);
 
         $this->logger->log($level, $message, $context);
     }
@@ -435,9 +437,9 @@ final class Escargot
             // Skip non http URIs
             if (!\in_array($crawlUri->getUri()->getScheme(), ['http', 'https'], true)) {
                 $this->log(
-                    \get_class($this),
                     LogLevel::DEBUG,
-                    $crawlUri->createLogMessage('Skipped because it\'s not a valid http(s) URI.')
+                    $crawlUri->createLogMessage('Skipped because it\'s not a valid http(s) URI.'),
+                    ['source' => \get_class($this)]
                 );
                 continue;
             }
@@ -445,9 +447,9 @@ final class Escargot
             // Stop crawling if we have reached max depth
             if (0 !== $this->maxDepth && $this->maxDepth <= $crawlUri->getLevel()) {
                 $this->log(
-                    \get_class($this),
                     LogLevel::DEBUG,
-                    $crawlUri->createLogMessage('Will not crawl as max depth is reached!')
+                    $crawlUri->createLogMessage('Will not crawl as max depth is reached!'),
+                    ['source' => \get_class($this)]
                 );
                 continue;
             }

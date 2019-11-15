@@ -51,9 +51,9 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         if (null !== $crawlUri->getFoundOn() && ($originalCrawlUri = $this->escargot->getCrawlUri($crawlUri->getFoundOn()))) {
             if ($originalCrawlUri->hasTag(self::TAG_NOFOLLOW)) {
                 $this->escargot->log(
-                    \get_class($this),
                     LogLevel::DEBUG,
-                    $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the robots information disallowed following this URI.')
+                    $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the robots information disallowed following this URI.'),
+                    ['source' => \get_class($this)]
                 );
 
                 return self::DECISION_NEGATIVE;
@@ -120,9 +120,9 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             $crawlUri->addTag($tag);
 
             $this->escargot->log(
-                \get_class($this),
                 LogLevel::DEBUG,
-                $crawlUri->createLogMessage(str_replace(['%value%', '%tag%'], [$value, $tag], $messageTpl))
+                $crawlUri->createLogMessage(str_replace(['%value%', '%tag%'], [$value, $tag], $messageTpl)),
+                ['source' => \get_class($this)]
             );
         }
     }
@@ -147,12 +147,12 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             $crawlUri->addTag(self::TAG_DISALLOWED_ROBOTS_TXT);
 
             $this->escargot->log(
-                \get_class($this),
                 LogLevel::DEBUG,
                 $crawlUri->createLogMessage(sprintf(
                     'Added the "%s" tag because of the robots.txt content.',
                     self::TAG_DISALLOWED_ROBOTS_TXT
-                ))
+                )),
+                ['source' => \get_class($this)]
             );
         }
     }

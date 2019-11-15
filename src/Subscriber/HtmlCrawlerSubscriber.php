@@ -36,9 +36,9 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
         // Only crawl URIs of the same host
         if (!$this->escargot->getBaseUris()->containsHost($uri->getHost())) {
             $this->escargot->log(
-                \get_class($this),
                 LogLevel::DEBUG,
-                $crawlUri->createLogMessage('Do not request because the host is not allowed by the base URI collection.')
+                $crawlUri->createLogMessage('Do not request because the host is not allowed by the base URI collection.'),
+                ['source' => \get_class($this)]
             );
 
             return self::DECISION_NEGATIVE;
@@ -47,9 +47,9 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
         // Skip rel="nofollow" links
         if ($crawlUri->hasTag(self::TAG_REL_NOFOLLOW)) {
             $this->escargot->log(
-                \get_class($this),
                 LogLevel::DEBUG,
-                $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".')
+                $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".'),
+                ['source' => \get_class($this)]
             );
 
             return self::DECISION_NEGATIVE;
@@ -58,9 +58,9 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
         // Skip the links that have the "type" attribute set and it's not text/html
         if ($crawlUri->hasTag(self::TAG_NO_TEXT_HTML_TYPE)) {
             $this->escargot->log(
-                \get_class($this),
                 LogLevel::DEBUG,
-                $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".')
+                $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".'),
+                ['source' => \get_class($this)]
             );
 
             return self::DECISION_NEGATIVE;
