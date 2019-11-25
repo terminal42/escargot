@@ -130,7 +130,7 @@ The flow of every request executed by `Escargot` is as follows which maps to the
    
    `SubscriberInterface:shouldRequest()`
    
-2. If a request was sent, wait for the first response chunk and decide whether the whole response body should be loaded
+2. If a request was sent, wait for the first response chunk and decide whether the whole response body should be loaded:
    
    `SubscriberInterface:needsContent()`
    
@@ -158,17 +158,18 @@ According to the flow of every request, the `SubscriberInterface` asks you to im
     
     * `SubscriberInterface::DECISION_POSITIVE`
     
-    If you return a positive decision. Escargot will request the provided `CrawlUri` instance.
+        Returning a positive decision will cause the request to be executed no matter what other subscribers return.
+        It will also cause `needsContent()` to be called on this subscriber.
     
-    * `SubscriberInterface::DECISION_NEGATIVE`
-    
-    If you return a negative decision. Escargot will not request the provided `CrawlUri` instance.
-
     * `SubscriberInterface::DECISION_ABSTAIN`
     
-    If you return an abstain decision, Escargot will not request the provided `CrawlUri` instance.
-    This likely never the return value you're looking for but the initial state before any subscriber is called.
-    If you don't want to interfere with what previous subscribers decided, return the provided `$currentDecision`.
+        Returning an abstain decision will not cause the request to be executed. However, if any other subscriber returns a positive
+        decision, `needsContent()` will still be called on this subscriber.
+
+    * `SubscriberInterface::DECISION_NEGATIVE`
+    
+        Returning a negative decision will make sure, `needsContent()` is not called on this subscriber, no matter whether
+        another subscriber returns a positive decision thus causing the request to be executed.
 
 *   `needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk, string $currentDecision): string;`
 
@@ -178,26 +179,25 @@ According to the flow of every request, the `SubscriberInterface` asks you to im
     Again you may return one of the following `3` constants:
     
     * `SubscriberInterface::DECISION_POSITIVE`
-    
-    If you return a positive decision. Escargot will continue to request and serve the content on `onLastChunk()`.
+        
+        Returning a positive decision will cause the request to be finished (whole response content is loaded) no matter what
+        other subscribers return.
+        It will also cause `onLastChunk()` to be called on this subscriber.
+         
+    * `SubscriberInterface::DECISION_ABSTAIN`
+
+        Returning an abstain decision will not cause the request to be finished. However, if any other subscriber returns a
+        positive decision, `onLastChunk()` will still be called on this subscriber.
     
     * `SubscriberInterface::DECISION_NEGATIVE`
-    
-    If you return a negative decision. Escargot will abort the request and not serve the content on `onLastChunk()`.
-
-    * `SubscriberInterface::DECISION_ABSTAIN`
-    
-    If you return an abstain decision, Escargot will abort the request and not serve the content on `onLastChunk()`.
-    This likely never the return value you're looking for but the initial state before any subscriber is called.
-    If you don't want to interfere with what previous subscribers decided, return the provided `$currentDecision`.
+        
+        Returning a negative decision will make sure, `onLastChunk()` is not called on this subscriber, no matter whether
+        another subscriber returns a positive decision thus causing the request to be completed.
 
 *   `onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void;`
 
-    If one of the subscribers returned a positive decision during the `needsContent()` phase, **all** of the subscribers
-    will receive the content of the response. The reason for this design is that you may have a listener that doesn't
-    require to have the whole content loaded but still wants to analyze it in case any other subscriber requested the
-    full response content.
-    
+    If one of the subscribers returned a positive decision during the `needsContent()` phase, all of the subscribers
+    that either abstained or replied positively during the `needsContent()` phase, receive the content of the response.
 
 There are `2` other interfaces which you might want to integrate but you don't have to:
 
@@ -242,8 +242,8 @@ by default:
   * Analyzes `Sitemap` entries in the `robots.txt` and adds the URIs found there to the queue.
   * Handles disallowed paths based on the `robots.txt` content.
   
-  By default, this subscriber will never cause any requests to be executed because it doesn't care if anything is
-  requested. But if it is, it wants to add meta information (tags) on all the found `CrawlUri` instances.
+  This subscriber will never cause any requests to be executed because it doesn't care if anything is
+  requested. But if it is, it adds meta information (tags) on all the found `CrawlUri` instances.
 
 * The `HtmlCrawlerSubscriber`
 
@@ -254,8 +254,8 @@ by default:
   * Sets `CrawlUri` tags if the link contained the attribute `type` and the value was not equal to `text/html`.
   * Sets `CrawlUri` tags if the link points to any host which is not part of the `BaseUriCollection`.
  
-  By default, this subscriber will ask for requests to be executed unless any previous subscriber has already returned
-  a negative decision on `shouldRequest()` in which case it will not overrule this decision.
+  This subscriber will never cause any requests to be executed because it doesn't care if anything is
+  requested.
  
 Using them is done like so:
 
@@ -269,8 +269,69 @@ $escargot->addSubscriber(new RobotsSubscriber());
 $escargot->addSubscriber(new HtmlCrawlerSubscriber());
 ```
 
-You now have a full-fledged web crawler. It's up to you now to register additional subscribers to actually do something
-with the results.
+These two subscribers will help us to build our crawler but we still need to add a subscriber that actually returns
+a positive decision on `shouldRequest()`. Otherwise, no request will ever be executed.
+This is where you jump in and where you can freely decide on whether you want to respect tags of previous subscribers
+or not. A possible solution could look like this:
+
+```php
+<?php
+
+use Symfony\Contracts\HttpClient\ChunkInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
+use Terminal42\Escargot\CrawlUri;
+use Terminal42\Escargot\EscargotAwareInterface;
+use Terminal42\Escargot\EscargotAwareTrait;
+use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
+use Terminal42\Escargot\Subscriber\RobotsSubscriber;
+use Terminal42\Escargot\Subscriber\SubscriberInterface;
+use Terminal42\Escargot\Subscriber\Util;
+
+class MyWebCrawler implements SubscriberInterface, EscargotAwareInterface
+{
+    use EscargotAwareTrait;
+
+    public function shouldRequest(CrawlUri $crawlUri): string
+    {
+        // Check the original crawlUri to see if that one contained nofollow information
+        if (null !== $crawlUri->getFoundOn() && ($originalCrawlUri = $this->escargot->getCrawlUri($crawlUri->getFoundOn()))) {
+            if ($originalCrawlUri->hasTag(RobotsSubscriber::TAG_NOFOLLOW)) {
+                return SubscriberInterface::DECISION_NEGATIVE;
+            }
+        }
+    
+        // Skip rel="nofollow" links
+        if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_REL_NOFOLLOW)) {
+            return SubscriberInterface::DECISION_NEGATIVE;
+        }
+    
+        // Skip the links that have the "type" attribute set and it's not text/html
+        if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_NO_TEXT_HTML_TYPE)) {
+            return SubscriberInterface::DECISION_NEGATIVE;
+        }
+    
+        // Skip links that do not belong to our BaseUriCollection
+        if ($this->escargot->getBaseUris()->containsHost($crawlUri->getUri()->getHost())) {
+            return SubscriberInterface::DECISION_POSITIVE;
+        }
+
+        return SubscriberInterface::DECISION_ABSTAIN;
+    }
+
+    public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
+    {
+        return 200 === $response->getStatusCode() && Util::isOfContentType($response, 'text/html') ? SubscriberInterface::DECISION_POSITIVE : SubscriberInterface::DECISION_NEGATIVE;
+    }
+
+    public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
+    {
+        // Do something with the data
+    }
+}
+```
+
+You now have a full-fledged web crawler. It's up to you now to see which tags of the different subscribers you actually
+want to respect or you don't care about and what you actually want to do with the results.
 
 ### Configuration
 

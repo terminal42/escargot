@@ -13,7 +13,6 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Subscriber;
 
 use Nyholm\Psr7\Uri;
-use Psr\Log\LogLevel;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Link;
 use Symfony\Contracts\HttpClient\ChunkInterface;
@@ -29,64 +28,25 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
     public const TAG_REL_NOFOLLOW = 'rel-nofollow';
     public const TAG_NO_TEXT_HTML_TYPE = 'no-txt-html-type';
 
-    public function shouldRequest(CrawlUri $crawlUri, string $currentDecision): string
+    public function shouldRequest(CrawlUri $crawlUri): string
     {
-        $uri = $crawlUri->getUri();
-
-        // Only crawl URIs of the same host
-        if (!$this->escargot->getBaseUris()->containsHost($uri->getHost())) {
-            $this->escargot->log(
-                LogLevel::DEBUG,
-                $crawlUri->createLogMessage('Do not request because the host is not allowed by the base URI collection.'),
-                ['source' => \get_class($this)]
-            );
-
-            return self::DECISION_NEGATIVE;
-        }
-
-        // Skip rel="nofollow" links
-        if ($crawlUri->hasTag(self::TAG_REL_NOFOLLOW)) {
-            $this->escargot->log(
-                LogLevel::DEBUG,
-                $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".'),
-                ['source' => \get_class($this)]
-            );
-
-            return self::DECISION_NEGATIVE;
-        }
-
-        // Skip the links that have the "type" attribute set and it's not text/html
-        if ($crawlUri->hasTag(self::TAG_NO_TEXT_HTML_TYPE)) {
-            $this->escargot->log(
-                LogLevel::DEBUG,
-                $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".'),
-                ['source' => \get_class($this)]
-            );
-
-            return self::DECISION_NEGATIVE;
-        }
-
-        // If the current decision is negative, we do not change this.
-        // Otherwise, we want to continue to crawl
-        return self::DECISION_NEGATIVE === $currentDecision ? self::DECISION_NEGATIVE : self::DECISION_POSITIVE;
+        // We don't want to force the request but if another subscriber does, we want to know the headers
+        return self::DECISION_ABSTAIN;
     }
 
-    public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk, string $currentDecision): string
+    public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
     {
-        if ($this->isHtml($response)) {
+        // If it's an HTML response, we want the whole content to extract additional URIs
+        if (Util::isOfContentType($response, 'text/html')) {
             return self::DECISION_POSITIVE;
         }
 
-        return $currentDecision;
+        // Otherwise, we don't need the content
+        return self::DECISION_NEGATIVE;
     }
 
     public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
     {
-        // This could happen if another subscriber requested the content
-        if (!$this->isHtml($response)) {
-            return;
-        }
-
         $crawler = new Crawler($response->getContent());
         $linkCrawler = $crawler->filter('a');
 
@@ -110,14 +70,5 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
                 $newCrawlUri->addTag(self::TAG_NO_TEXT_HTML_TYPE);
             }
         }
-    }
-
-    private function isHtml(ResponseInterface $response): bool
-    {
-        if (!\in_array('content-type', array_keys($response->getHeaders()), true)) {
-            return false;
-        }
-
-        return false !== strpos($response->getHeaders()['content-type'][0], 'text/html');
     }
 }

@@ -113,6 +113,15 @@ final class Escargot
      */
     private $runningRequests = [];
 
+    /**
+     * Keeps track of all the decisions
+     * for all the subscribers for
+     * every CrawlUri instance.
+     *
+     * @var array
+     */
+    private $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
+
     private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris, ?HttpClientInterface $client = null)
     {
         $this->client = $client;
@@ -395,12 +404,22 @@ final class Escargot
 
         try {
             if ($chunk->isFirst()) {
-                $needsContent = SubscriberInterface::DECISION_ABSTAIN;
+                $needsContent = false;
                 foreach ($this->subscribers as $subscriber) {
-                    $needsContent = $subscriber->needsContent($crawlUri, $response, $chunk, $needsContent);
+                    $shouldRequestDecision = $this->getDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber);
+                    if (SubscriberInterface::DECISION_NEGATIVE === $shouldRequestDecision) {
+                        continue;
+                    }
+
+                    $needsContentDecision = $subscriber->needsContent($crawlUri, $response, $chunk);
+                    $this->storeDecisionForSubscriber('needsContent', $crawlUri, $subscriber, $needsContentDecision);
+
+                    if (SubscriberInterface::DECISION_POSITIVE === $needsContentDecision) {
+                        $needsContent = true;
+                    }
                 }
 
-                if (SubscriberInterface::DECISION_POSITIVE !== $needsContent) {
+                if (!$needsContent) {
                     $response->cancel();
                     $this->finishRequest($response);
                 }
@@ -408,7 +427,11 @@ final class Escargot
 
             if ($chunk->isLast()) {
                 foreach ($this->subscribers as $subscriber) {
-                    $subscriber->onLastChunk($crawlUri, $response, $chunk);
+                    $needsContentDecision = $this->getDecisionForSubscriber('needsContent', $crawlUri, $subscriber);
+
+                    if (SubscriberInterface::DECISION_NEGATIVE !== $needsContentDecision) {
+                        $subscriber->onLastChunk($crawlUri, $response, $chunk);
+                    }
                 }
                 $this->finishRequest($response);
             }
@@ -463,14 +486,18 @@ final class Escargot
             }
 
             // Check if any subscriber wants this crawlUri to be requested
-            $doRequest = SubscriberInterface::DECISION_ABSTAIN;
+            $shouldRequest = false;
 
             foreach ($this->subscribers as $subscriber) {
-                $doRequest = $subscriber->shouldRequest($crawlUri, $doRequest);
+                $decision = $subscriber->shouldRequest($crawlUri);
+                $this->storeDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber, $decision);
+                if (SubscriberInterface::DECISION_POSITIVE === $decision) {
+                    $shouldRequest = true;
+                }
             }
 
             // No subscriber wanted the URI to be requested
-            if (SubscriberInterface::DECISION_POSITIVE !== $doRequest) {
+            if (!$shouldRequest) {
                 continue;
             }
 
@@ -494,6 +521,16 @@ final class Escargot
         }
 
         return $responses;
+    }
+
+    private function storeDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber, string $decision): void
+    {
+        $this->decisionMap[$key][(string) $crawlUri->getUri().\get_class($subscriber)] = $decision;
+    }
+
+    private function getDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber): string
+    {
+        return $this->decisionMap[$key][(string) $crawlUri->getUri().\get_class($subscriber)] ?? SubscriberInterface::DECISION_ABSTAIN;
     }
 
     private function isMaxRequestsReached(): bool

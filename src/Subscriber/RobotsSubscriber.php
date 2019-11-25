@@ -42,32 +42,19 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
     /**
      * {@inheritdoc}
      */
-    public function shouldRequest(CrawlUri $crawlUri, string $currentDecision): string
+    public function shouldRequest(CrawlUri $crawlUri): string
     {
         // Add robots.txt information
         $this->handleDisallowedByRobotsTxtTag($crawlUri);
 
-        // Check the original crawlUri to see if that one contained nofollow information
-        if (null !== $crawlUri->getFoundOn() && ($originalCrawlUri = $this->escargot->getCrawlUri($crawlUri->getFoundOn()))) {
-            if ($originalCrawlUri->hasTag(self::TAG_NOFOLLOW)) {
-                $this->escargot->log(
-                    LogLevel::DEBUG,
-                    $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the robots information disallowed following this URI.'),
-                    ['source' => \get_class($this)]
-                );
-
-                return self::DECISION_NEGATIVE;
-            }
-        }
-
-        // We don't care if the URI is going to be crawled or not, that's up to other subscribers.
-        return $currentDecision;
+        // We don't care if the URI is going to be crawled or not, that's up to other subscribers
+        return self::DECISION_ABSTAIN;
     }
 
     /**
      * {@inheritdoc}
      */
-    public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk, string $currentDecision): string
+    public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
     {
         // Add tags
         if (\in_array('x-robots-tag', array_keys($response->getHeaders()), true)) {
@@ -79,17 +66,14 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             );
         }
 
-        // We don't care if the rest of the response is loaded, that's up to other subscribers.
-        return $currentDecision;
+        // We don't care if the rest of the content is loaded
+        return self::DECISION_ABSTAIN;
     }
 
     public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
     {
-        if (!\in_array('content-type', array_keys($response->getHeaders()), true)) {
-            return;
-        }
-
-        if (false === strpos($response->getHeaders()['content-type'][0], 'text/html')) {
+        // We don't care about non HTML responses
+        if (!Util::isOfContentType($response, 'text/html')) {
             return;
         }
 

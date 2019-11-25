@@ -19,38 +19,54 @@ use Terminal42\Escargot\CrawlUri;
 interface SubscriberInterface
 {
     public const DECISION_POSITIVE = 'positive';
-    public const DECISION_NEGATIVE = 'negative';
     public const DECISION_ABSTAIN = 'abstain';
+    public const DECISION_NEGATIVE = 'negative';
 
     /**
      * Called before a request is executed.
-     * You may operate on the CrawlUri instance and add attributes to it.
+     * You may operate on the CrawlUri instance and add tags to it.
      *
-     * Only if the resulting decision of all subscribers is positive,
-     * the request is going to be executed.
+     * Returning a positive decision will cause the request to be
+     * executed no matter what other subscribers return.
+     * It will also cause needsContent() to be called on this subscriber.
      *
-     * @param CrawlUri $crawlUri        The current CrawlUri instance
-     * @param string   $currentDecision One of the DECISION_* constants
+     * Returning an abstain decision will not cause the request to be
+     * executed. However, if any other subscriber returns a positive
+     * decision, needsContent() will still be called on this subscriber.
+     *
+     * Returning a negative decision will make sure, needsContent() is
+     * not called on this subscriber, no matter whether another subscriber
+     * returns a positive decision thus causing the request to be executed.
+     *
+     * @param CrawlUri $crawlUri The current CrawlUri instance
      *
      * @return string One of the DECISION_* constants
      */
-    public function shouldRequest(CrawlUri $crawlUri, string $currentDecision): string;
+    public function shouldRequest(CrawlUri $crawlUri): string;
 
     /**
      * Called on the first chunk that arrives.
-     * You may operate on the CrawlUri instance and add attributes to it.
-
-     * Only if the resulting decision of all subscribers is positive,
-     * the response is not going to be early aborted.
+     * You may operate on the CrawlUri instance and add tags to it.
      *
-     * @param CrawlUri          $crawlUri        The current CrawlUri instance
-     * @param ResponseInterface $response        The current response
-     * @param ChunkInterface    $chunk           The first chunk
-     * @param string            $currentDecision One of the DECISION_* constants
+     * Returning a positive decision will cause the request to be finished
+     * (whole response content is loaded) no matter what other subscribers return.
+     * It will also cause onLastChunk() to be called on this subscriber.
+     *
+     * Returning an abstain decision will not cause the request to be
+     * finished. However, if any other subscriber returns a positive
+     * decision, onLastChunk() will still be called on this subscriber.
+     *
+     * Returning a negative decision will make sure, onLastChunk() is
+     * not called on this subscriber, no matter whether another subscriber
+     * returns a positive decision thus causing the request to be completed.
+     *
+     * @param CrawlUri          $crawlUri The current CrawlUri instance
+     * @param ResponseInterface $response The current response
+     * @param ChunkInterface    $chunk    The first chunk
      *
      * @return string One of the DECISION_* constants
      */
-    public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk, string $currentDecision): string;
+    public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string;
 
     /**
      * Called on the last chunk that arrives.
