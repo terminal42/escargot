@@ -431,7 +431,7 @@ final class Escargot
         } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $exception) {
             foreach ($this->subscribers as $subscriber) {
                 if ($subscriber instanceof ExceptionSubscriberInterface) {
-                    $subscriber->onException($crawlUri, $exception, $response);
+                    $subscriber->onException($crawlUri, $exception, $response, $chunk);
                 }
             }
             $this->finishRequest($response);

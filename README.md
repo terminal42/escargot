@@ -201,10 +201,11 @@ According to the flow of every request, the `SubscriberInterface` asks you to im
 
 There are `2` other interfaces which you might want to integrate but you don't have to:
 
-*   `ExceptionSubscriberInterface::onException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response): void;`
+*   `ExceptionSubscriberInterface::onException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response, ChunkInterface $chunk = null): void;`
 
     In case there's an exception during the request execution (see the [Symfony HttpClient docs for more information][Symfony_HTTPClient])
     it's caught and passed on to subscribers implementing this interface.
+    The `ChunkInterface` is optional as an exception might happen even before there's an actual response coming in.
 
 *   `FinishedCrawlingSubscriberInterface::finishedCrawling(): void;`
 

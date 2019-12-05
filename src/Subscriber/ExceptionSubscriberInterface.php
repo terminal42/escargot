@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Subscriber;
 
+use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
@@ -21,5 +22,5 @@ interface ExceptionSubscriberInterface
     /**
      * Called if an HttpClient exception occurs during the crawl process.
      */
-    public function onException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response): void;
+    public function onException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response, ChunkInterface $chunk = null): void;
 }
