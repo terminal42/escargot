@@ -385,13 +385,6 @@ final class Escargot
      */
     private function processResponses(array $responses): void
     {
-        // Mark all responses before we start to stream, otherwise the internal counter is only
-        // updated once the first chunk is arrived which might be too late as in between there
-        // might be already new requests being created.
-        foreach ($responses as $response) {
-            $this->startRequest($response);
-        }
-
         foreach ($this->getClient()->stream($responses) as $response => $chunk) {
             $this->processResponseChunk($response, $chunk);
         }
@@ -511,6 +504,9 @@ final class Escargot
                     'user_data' => $crawlUri,
                 ]);
                 $responses[] = $response;
+
+                // Mark the response as started
+                $this->startRequest($response);
             } catch (TransportExceptionInterface $exception) {
                 foreach ($this->subscribers as $subscriber) {
                     if ($subscriber instanceof ExceptionSubscriberInterface) {
