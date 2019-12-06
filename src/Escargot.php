@@ -434,7 +434,16 @@ final class Escargot
                     $subscriber->onException($crawlUri, $exception, $response, $chunk);
                 }
             }
-            $this->finishRequest($response);
+
+            // Try to check if it's the last chunk to mark a response as finished and if that fails (because of
+            // of e.g. network timeout) catch the exception and finish as well.
+            try {
+                if ($chunk->isLast()) {
+                    $this->finishRequest($response);
+                }
+            } catch (TransportExceptionInterface $exception) {
+                $this->finishRequest($response);
+            }
         }
     }
 
