@@ -201,13 +201,25 @@ According to the flow of every request, the `SubscriberInterface` asks you to im
 
 There are `2` other interfaces which you might want to integrate but you don't have to:
 
-*   `ExceptionSubscriberInterface::onException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response, ChunkInterface $chunk = null): void;`
+*   `ExceptionSubscriberInterface`
 
-    In case there's an exception during the request execution (see the [Symfony HttpClient docs for more information][Symfony_HTTPClient])
-    it's caught and passed on to subscribers implementing this interface.
-    The `ChunkInterface` is optional as an exception might happen even before there's an actual response coming in.
+    There are two methods to implement in this interface:
+    
+    `onTransportException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response): void;`
+    
+    These type of exceptions are thrown if there's something wrong with the transport (timeouts etc.).
 
-*   `FinishedCrawlingSubscriberInterface::finishedCrawling(): void;`
+    `onHttpException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response, ChunkInterface $chunk): void;`
+    
+    These type of exceptions are thrown if the status code was in the 300-599 range.
+ 
+    For more information, also see the [Symfony HttpClient docs][Symfony_HTTPClient].
+
+*   `FinishedCrawlingSubscriberInterface`
+
+    There's only one method to implement in this interface:
+    
+    `finishedCrawling(): void;`
 
     Once crawling is finished (that does not mean there's no pending queue items, you may also have reached the maximum
     number of requests), all subscribers implementing this interface will be called.

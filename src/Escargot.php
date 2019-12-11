@@ -17,9 +17,8 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
@@ -397,6 +396,11 @@ final class Escargot
 
         try {
             if ($chunk->isFirst()) {
+                // Makes sure an HttpException is thrown, no matter what the subscribers do to have a consistent
+                // behaviour. Otherwise whether or not the onHttpException() method would be called on the subscribers
+                // would depend on the fact if all subscribers check for the status code or not.
+                $response->getHeaders();
+
                 $needsContent = false;
                 foreach ($this->subscribers as $subscriber) {
                     $shouldRequestDecision = $this->getDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber);
@@ -428,22 +432,8 @@ final class Escargot
                 }
                 $this->finishRequest($response);
             }
-        } catch (TransportExceptionInterface | RedirectionExceptionInterface | ClientExceptionInterface | ServerExceptionInterface $exception) {
-            foreach ($this->subscribers as $subscriber) {
-                if ($subscriber instanceof ExceptionSubscriberInterface) {
-                    $subscriber->onException($crawlUri, $exception, $response, $chunk);
-                }
-            }
-
-            // Try to check if it's the last chunk to mark a response as finished and if that fails (because of
-            // of e.g. network timeout) catch the exception and finish as well.
-            try {
-                if ($chunk->isLast()) {
-                    $this->finishRequest($response);
-                }
-            } catch (TransportExceptionInterface $exception) {
-                $this->finishRequest($response);
-            }
+        } catch (ExceptionInterface $exception) {
+            $this->handleException($exception, $crawlUri, $response, $chunk);
         }
     }
 
@@ -517,11 +507,7 @@ final class Escargot
                 // Mark the response as started
                 $this->startRequest($response);
             } catch (TransportExceptionInterface $exception) {
-                foreach ($this->subscribers as $subscriber) {
-                    if ($subscriber instanceof ExceptionSubscriberInterface) {
-                        $subscriber->onException($crawlUri, $exception, $response);
-                    }
-                }
+                $this->handleException($exception, $crawlUri, $response);
             }
         }
 
@@ -546,5 +532,44 @@ final class Escargot
     private function isMaxConcurrencyReached(): bool
     {
         return \count($this->runningRequests) >= $this->concurrency;
+    }
+
+    private function handleException(ExceptionInterface $exception, CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk = null): void
+    {
+        foreach ($this->subscribers as $subscriber) {
+            if ($subscriber instanceof ExceptionSubscriberInterface) {
+                switch (true) {
+                    case $exception instanceof TransportExceptionInterface:
+                        $subscriber->onTransportException($crawlUri, $exception, $response);
+
+                        // Mark request as finished
+                        $this->finishRequest($response);
+                        break;
+                    case $exception instanceof HttpExceptionInterface:
+                        if (null === $chunk) {
+                            throw new \RuntimeException('Cannot throw an HttpException without providing a chunk!');
+                        }
+
+                        try {
+                            // Mark request as finished if it's the last chunk
+                            if ($chunk->isLast()) {
+                                $this->finishRequest($response);
+                            }
+                        } catch (TransportExceptionInterface $exception) {
+                            $this->handleException($exception, $crawlUri, $response);
+
+                            return;
+                        }
+
+                        $subscriber->onHttpException($crawlUri, $exception, $response, $chunk);
+                        break;
+                    default:
+                        throw new \RuntimeException('Unknown exception type!');
+                }
+            }
+        }
+
+        // Mark the response as finished
+        $this->finishRequest($response);
     }
 }
