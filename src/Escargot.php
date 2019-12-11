@@ -536,6 +536,17 @@ final class Escargot
 
     private function handleException(ExceptionInterface $exception, CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk = null): void
     {
+        // Log the exception
+        $this->log(
+            LogLevel::DEBUG,
+            $crawlUri->createLogMessage(sprintf('Exception of type "%s" occurred: %s',
+                get_class($exception),
+                $exception->getMessage())
+            ),
+            ['source' => \get_class($this)]
+        );
+
+        // Call the subscribers
         foreach ($this->subscribers as $subscriber) {
             if ($subscriber instanceof ExceptionSubscriberInterface) {
                 switch (true) {
@@ -547,7 +558,7 @@ final class Escargot
                         break;
                     case $exception instanceof HttpExceptionInterface:
                         if (null === $chunk) {
-                            throw new \RuntimeException('Cannot throw an HttpException without providing a chunk!');
+                            throw new \RuntimeException('Cannot throw an HttpException without providing any chunk!');
                         }
 
                         try {
@@ -568,8 +579,5 @@ final class Escargot
                 }
             }
         }
-
-        // Mark the response as finished
-        $this->finishRequest($response);
     }
 }
