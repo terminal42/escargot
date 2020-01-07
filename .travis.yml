@@ -9,14 +9,13 @@ matrix:
         - php: 7.3
         - php: 7.3
           env: COMPOSER_FLAGS='--prefer-lowest --prefer-stable'
-        - php: 7.4snapshot
-        - php: 7.4snapshot
+        - php: 7.4
+        - php: 7.4
           env: COMPOSER_FLAGS='--prefer-lowest --prefer-stable'
 #       - php: nightly
 #       - php: nightly
 #         env: COMPOSER_FLAGS='--prefer-lowest --prefer-stable'
     allow_failures:
-        - php: 7.4snapshot
 #       - php: nightly
 
 before_script:
