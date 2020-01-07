@@ -14,6 +14,8 @@ namespace Terminal42\Escargot\Subscriber;
 
 use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Contracts\HttpClient\ChunkInterface;
@@ -22,13 +24,16 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\EscargotAwareInterface;
 use Terminal42\Escargot\EscargotAwareTrait;
+use Terminal42\Escargot\SubscriberLoggerTrait;
 use webignition\RobotsTxt\File\File;
 use webignition\RobotsTxt\File\Parser;
 use webignition\RobotsTxt\Inspector\Inspector;
 
-final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterface
+final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface
 {
     use EscargotAwareTrait;
+    use LoggerAwareTrait;
+    use SubscriberLoggerTrait;
 
     public const TAG_NOINDEX = 'noindex';
     public const TAG_NOFOLLOW = 'nofollow';
@@ -103,10 +108,10 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         foreach ($tags as $tag) {
             $crawlUri->addTag($tag);
 
-            $this->escargot->log(
+            $this->logWithCrawlUri(
+                $crawlUri,
                 LogLevel::DEBUG,
-                $crawlUri->createLogMessage(str_replace(['%value%', '%tag%'], [$value, $tag], $messageTpl)),
-                ['source' => \get_class($this)]
+                str_replace(['%value%', '%tag%'], [$value, $tag], $messageTpl)
             );
         }
     }
@@ -130,13 +135,13 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         if (!$inspector->isAllowed($crawlUri->getUri()->getPath())) {
             $crawlUri->addTag(self::TAG_DISALLOWED_ROBOTS_TXT);
 
-            $this->escargot->log(
+            $this->logWithCrawlUri(
+                $crawlUri,
                 LogLevel::DEBUG,
-                $crawlUri->createLogMessage(sprintf(
+                sprintf(
                     'Added the "%s" tag because of the robots.txt content.',
                     self::TAG_DISALLOWED_ROBOTS_TXT
-                )),
-                ['source' => \get_class($this)]
+                )
             );
         }
     }

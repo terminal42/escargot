@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
+use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Symfony\Component\HttpClient\HttpClient;
@@ -208,6 +209,10 @@ final class Escargot
         $new = clone $this;
         $new->logger = $logger;
 
+        foreach ($this->subscribers as $subscriber) {
+            $new->setLoggerToSubscriber($subscriber);
+        }
+
         return $new;
     }
 
@@ -216,6 +221,8 @@ final class Escargot
         if ($subscriber instanceof EscargotAwareInterface) {
             $subscriber->setEscargot($this);
         }
+
+        $this->setLoggerToSubscriber($subscriber);
 
         $this->subscribers[] = $subscriber;
 
@@ -310,8 +317,7 @@ final class Escargot
 
         $this->log(
             LogLevel::DEBUG,
-            sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()),
-            ['source' => \get_class($this)]
+            sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent())
         );
 
         foreach ($this->subscribers as $subscriber) {
@@ -342,15 +348,28 @@ final class Escargot
         return $this->queue->get($this->jobId, $uri);
     }
 
+    private function setLoggerToSubscriber(SubscriberInterface $subscriber): void
+    {
+        if (null !== $this->logger && $subscriber instanceof LoggerAwareInterface) {
+            // Decorate logger to automatically pass the subscriber in the logging context
+            $logger = new SubscriberLogger($this->logger, \get_class($subscriber));
+            $subscriber->setLogger($logger);
+        }
+    }
+
     /**
      * Logs a message to the logger if one was provided.
-     *
-     * @param array<string,array|string|int> $context
      */
-    public function log(string $level, string $message, array $context = []): void
+    private function log(string $level, string $message, CrawlUri $crawlUri = null): void
     {
         if (null === $this->logger) {
             return;
+        }
+
+        $context = ['source' => \get_class($this)];
+
+        if (null !== $crawlUri) {
+            $context['crawlUri'] = $crawlUri;
         }
 
         $this->logger->log($level, $message, $context);
@@ -461,8 +480,8 @@ final class Escargot
             if (!\in_array($crawlUri->getUri()->getScheme(), ['http', 'https'], true)) {
                 $this->log(
                     LogLevel::DEBUG,
-                    $crawlUri->createLogMessage('Skipped because it\'s not a valid http(s) URI.'),
-                    ['source' => \get_class($this)]
+                    'Skipped because it\'s not a valid http(s) URI.',
+                    $crawlUri
                 );
                 continue;
             }
@@ -471,8 +490,8 @@ final class Escargot
             if (0 !== $this->maxDepth && $this->maxDepth <= $crawlUri->getLevel()) {
                 $this->log(
                     LogLevel::DEBUG,
-                    $crawlUri->createLogMessage('Will not crawl as max depth is reached!'),
-                    ['source' => \get_class($this)]
+                    'Will not crawl as max depth is reached!',
+                    $crawlUri
                 );
                 continue;
             }
@@ -539,11 +558,8 @@ final class Escargot
         // Log the exception
         $this->log(
             LogLevel::DEBUG,
-            $crawlUri->createLogMessage(sprintf('Exception of type "%s" occurred: %s',
-                get_class($exception),
-                $exception->getMessage())
-            ),
-            ['source' => \get_class($this)]
+            sprintf('Exception of type "%s" occurred: %s', \get_class($exception), $exception->getMessage()),
+            $crawlUri
         );
 
         // Call the subscribers

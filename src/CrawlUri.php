@@ -68,14 +68,6 @@ final class CrawlUri
         );
     }
 
-    public function createLogMessage(string $message): string
-    {
-        return sprintf('[%s] %s',
-            (string) $this,
-            $message
-        );
-    }
-
     public function getLevel(): int
     {
         return $this->level;

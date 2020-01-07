@@ -346,6 +346,72 @@ class MyWebCrawler implements SubscriberInterface, EscargotAwareInterface
 You now have a full-fledged web crawler. It's up to you now to see which tags of the different subscribers you actually
 want to respect or you don't care about and what you actually want to do with the results.
 
+### Logging in subscribers
+
+Of course you can always use Dependency Injection and inject whatever logger service you want to use in your subscriber.
+However, there's also a general logger you can pass to `Escargot` using `Escargot::withLogger()`.
+By having all the subscribers log to this central logger (only or in addition to another one you injected yourself)
+makes sure, `Escargot` has one central place where all subscribers log their information.
+In 99% of all use cases, we want to know
+
+* Which subscriber logged the message
+* What `CrawlUri` instance was handled at that time
+
+This is why `Escargot` automatically passes on the logger instance you configured using `Escargot::withLogger()` on
+to every subscriber that implements the PSR-6 `LoggerAwareInterface`. It internally decorates it so the concerning
+subscriber is already known and you don't have to deal with that:
+
+```php
+<?php
+
+use Terminal42\Escargot\CrawlUri;
+use Terminal42\Escargot\Subscriber\SubscriberInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LogLevel;
+
+class MyWebCrawler implements SubscriberInterface, LoggerAwareInterface
+{
+    use LoggerAwareTrait;
+
+    public function shouldRequest(CrawlUri $crawlUri): string
+    {
+        if (null !== $this->logger) {
+            $this->logger->log(LogLevel::DEBUG, 'My log message');
+        }
+    }
+}
+```
+
+Because the logger is decorated automatically, it will eventually end up in the logger you configured using
+`Escargot::withLogger()` together with the PSR-6 `$context` that will contain `['source' => 'MyWebCrawler']`.
+
+To make things easy when you want to also make sure the `CrawlUri` instance is passed along in the PSR-6 `$context`
+array, use the `SubscriberLoggerTrait` as follows:
+
+```php
+<?php
+
+use Terminal42\Escargot\CrawlUri;
+use Terminal42\Escargot\SubscriberLoggerTrait;
+use Terminal42\Escargot\Subscriber\SubscriberInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LogLevel;
+
+class MyWebCrawler implements SubscriberInterface, LoggerAwareInterface
+{
+    use LoggerAwareTrait;
+    use SubscriberLoggerTrait;
+
+    public function shouldRequest(CrawlUri $crawlUri): string
+    {
+        // No need to check for $this->logger being null, this is handled by the trait
+        $this->logWithCrawlUri($crawlUri, LogLevel::DEBUG, 'My log message');
+    }
+}
+```
+
 ### Configuration
 
 There are different configurations you can apply to the `Escargot` instance:

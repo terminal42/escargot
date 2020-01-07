@@ -14,6 +14,9 @@ namespace Terminal42\Escargot\Tests;
 
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Psr\Log\Test\TestLogger;
 use Symfony\Component\Finder\Finder;
@@ -31,6 +34,8 @@ use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 use Terminal42\Escargot\Subscriber\SubscriberInterface;
 use Terminal42\Escargot\Subscriber\Util;
+use Terminal42\Escargot\SubscriberLogger;
+use Terminal42\Escargot\SubscriberLoggerTrait;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
 
 class EscargotTest extends TestCase
@@ -57,19 +62,28 @@ class EscargotTest extends TestCase
         $baseUris = new BaseUriCollection();
         $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
+        $logger = new TestLogger();
 
         $escargot = Escargot::create($baseUris, $queue);
 
-        $subscriber = $this->createMock([SubscriberInterface::class, EscargotAwareInterface::class]);
+        $subscriber = $this->createMock([SubscriberInterface::class, EscargotAwareInterface::class, LoggerAwareInterface::class]);
         $subscriber
-            ->expects($this->exactly(4))
+            ->expects($this->exactly(5))
             ->method('setEscargot');
+        $subscriber
+            ->expects($this->once())
+            ->method('setLogger')
+            ->with($this->callback(function (LoggerInterface $logger) {
+                // Must be decorated
+                return $logger instanceof SubscriberLogger;
+            }));
 
         $escargot->addSubscriber($subscriber);
 
         $escargot = $escargot->withConcurrency(15);
         $escargot = $escargot->withMaxRequests(500);
         $escargot = $escargot->withMaxDepth(10);
+        $escargot = $escargot->withLogger($logger);
 
         $this->assertSame(15, $escargot->getConcurrency());
         $this->assertSame(500, $escargot->getMaxRequests());
@@ -153,6 +167,10 @@ class EscargotTest extends TestCase
         $filteredLogs = array_map(function (array $record) {
             $message = $record['message'];
 
+            if (isset($record['context']['crawlUri'])) {
+                $message = sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
+            }
+
             if (isset($record['context']['source'])) {
                 $message = sprintf('[%s] %s', $record['context']['source'], $message);
             }
@@ -187,8 +205,10 @@ class EscargotTest extends TestCase
 
     private function getSearchIndexSubscriber(): SubscriberInterface
     {
-        return new class() implements SubscriberInterface, EscargotAwareInterface {
+        return new class() implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface {
             use EscargotAwareTrait;
+            use LoggerAwareTrait;
+            use SubscriberLoggerTrait;
 
             private $uris = [];
 
@@ -202,10 +222,10 @@ class EscargotTest extends TestCase
                 // Check the original crawlUri to see if that one contained nofollow information
                 if (null !== $crawlUri->getFoundOn() && ($originalCrawlUri = $this->escargot->getCrawlUri($crawlUri->getFoundOn()))) {
                     if ($originalCrawlUri->hasTag(RobotsSubscriber::TAG_NOFOLLOW)) {
-                        $this->escargot->log(
+                        $this->logWithCrawlUri(
+                            $crawlUri,
                             LogLevel::DEBUG,
-                            $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the robots information disallowed following this URI.'),
-                            ['source' => 'Unit-Test-Search-Index-Subscriber']
+                            'Do not request because when the crawl URI was found, the robots information disallowed following this URI.'
                         );
 
                         return SubscriberInterface::DECISION_NEGATIVE;
@@ -214,10 +234,10 @@ class EscargotTest extends TestCase
 
                 // Skip rel="nofollow" links
                 if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_REL_NOFOLLOW)) {
-                    $this->escargot->log(
+                    $this->logWithCrawlUri(
+                        $crawlUri,
                         LogLevel::DEBUG,
-                        $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".'),
-                        ['source' => 'Unit-Test-Search-Index-Subscriber']
+                        'Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".'
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;
@@ -225,10 +245,10 @@ class EscargotTest extends TestCase
 
                 // Skip the links that have the "type" attribute set and it's not text/html
                 if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_NO_TEXT_HTML_TYPE)) {
-                    $this->escargot->log(
+                    $this->logWithCrawlUri(
+                        $crawlUri,
                         LogLevel::DEBUG,
-                        $crawlUri->createLogMessage('Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".'),
-                        ['source' => 'Unit-Test-Search-Index-Subscriber']
+                        'Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".'
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;
