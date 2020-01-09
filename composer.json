@@ -28,7 +28,7 @@
         "webignition/robots-txt-file": "^3.0"
     },
     "require-dev": {
-        "doctrine/dbal": "^2.9",
+        "doctrine/dbal": "^2.10",
         "friendsofphp/php-cs-fixer": "^2.16.1",
         "symfony/finder": "^4.4",
         "symfony/phpunit-bridge": "^4.4"
