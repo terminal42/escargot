@@ -112,9 +112,9 @@ final class DoctrineQueue implements QueueInterface
             ->select('uri, level, processed, found_on, tags')
             ->from($this->tableName)
             ->where('job_id = :jobId')
-            ->andWhere('uri = :uri')
+            ->andWhere('uri_hash = :uri_hash')
             ->setParameter(':jobId', $jobId, Type::STRING)
-            ->setParameter(':uri', (string) $uri, Type::STRING)
+            ->setParameter(':uri_hash', $this->getUriHash($uri), Type::STRING)
             ->setMaxResults(1);
 
         $data = $queryBuilder->execute()->fetch();
@@ -136,11 +136,13 @@ final class DoctrineQueue implements QueueInterface
                 ->values([
                     'job_id' => ':jobId',
                     'uri' => ':uri',
+                    'uri_hash' => ':uri_hash',
                     'level' => ':level',
                     'found_on' => ':foundOn',
                     'processed' => ':processed',
                     'tags' => ':tags',
                 ])
+                ->setParameter(':uri', (string) $crawlUri->getUri(), Type::STRING)
                 ->setParameter(':level', (int) $crawlUri->getLevel(), Type::INTEGER)
                 ->setParameter(':foundOn', $crawlUri->getFoundOn(), Type::STRING);
         } else {
@@ -149,12 +151,12 @@ final class DoctrineQueue implements QueueInterface
                 ->set('processed', ':processed')
                 ->set('tags', ':tags')
                 ->where('job_id = :jobId')
-                ->andWhere('uri = :uri');
+                ->andWhere('uri_hash = :uri_hash');
         }
 
         $queryBuilder
             ->setParameter(':jobId', $jobId, Type::STRING)
-            ->setParameter(':uri', (string) $crawlUri->getUri(), Type::STRING)
+            ->setParameter(':uri_hash', $this->getUriHash($crawlUri->getUri()), Type::STRING)
             ->setParameter(':processed', $crawlUri->isProcessed(), Type::BOOLEAN)
             ->setParameter(':tags', implode(',', $crawlUri->getTags()), Type::TEXT);
 
@@ -243,10 +245,15 @@ final class DoctrineQueue implements QueueInterface
         $table->addColumn('job_id', Type::GUID)
             ->setNotnull(true);
 
-        $table->addColumn('uri', Type::STRING)
+        $table->addColumn('uri_hash', Type::STRING)
+            ->setLength(40)
+            ->setFixed(true)
             ->setNotnull(true);
 
-        $table->addColumn('found_on', Type::STRING)
+        $table->addColumn('uri', Type::TEXT)
+            ->setNotnull(true);
+
+        $table->addColumn('found_on', Type::TEXT)
             ->setNotnull(false);
 
         $table->addColumn('level', Type::INTEGER)
@@ -287,5 +294,10 @@ final class DoctrineQueue implements QueueInterface
         }
 
         return $crawlUri;
+    }
+
+    private function getUriHash(UriInterface $uri): string
+    {
+        return sha1((string) $uri);
     }
 }
