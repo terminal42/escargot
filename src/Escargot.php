@@ -562,32 +562,34 @@ final class Escargot
             $crawlUri
         );
 
+        // Mark the responses as finished
+        if ($exception instanceof HttpExceptionInterface) {
+            if (null === $chunk) {
+                throw new \RuntimeException('Cannot throw an HttpException without providing any chunk!');
+            }
+
+            try {
+                // Mark request as finished if it's the last chunk
+                if ($chunk->isLast()) {
+                    $this->finishRequest($response);
+                }
+            } catch (TransportExceptionInterface $exception) {
+                $this->handleException($exception, $crawlUri, $response);
+
+                return;
+            }
+        }
+
+        $this->finishRequest($response);
+
         // Call the subscribers
         foreach ($this->subscribers as $subscriber) {
             if ($subscriber instanceof ExceptionSubscriberInterface) {
                 switch (true) {
                     case $exception instanceof TransportExceptionInterface:
                         $subscriber->onTransportException($crawlUri, $exception, $response);
-
-                        // Mark request as finished
-                        $this->finishRequest($response);
                         break;
                     case $exception instanceof HttpExceptionInterface:
-                        if (null === $chunk) {
-                            throw new \RuntimeException('Cannot throw an HttpException without providing any chunk!');
-                        }
-
-                        try {
-                            // Mark request as finished if it's the last chunk
-                            if ($chunk->isLast()) {
-                                $this->finishRequest($response);
-                            }
-                        } catch (TransportExceptionInterface $exception) {
-                            $this->handleException($exception, $crawlUri, $response);
-
-                            return;
-                        }
-
                         $subscriber->onHttpException($crawlUri, $exception, $response, $chunk);
                         break;
                     default:
