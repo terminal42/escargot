@@ -13,6 +13,9 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Subscriber;
 
 use Nyholm\Psr7\Uri;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\LogLevel;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\DomCrawler\Link;
 use Symfony\Contracts\HttpClient\ChunkInterface;
@@ -20,10 +23,13 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\EscargotAwareInterface;
 use Terminal42\Escargot\EscargotAwareTrait;
+use Terminal42\Escargot\SubscriberLoggerTrait;
 
-final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareInterface
+final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface
 {
     use EscargotAwareTrait;
+    use LoggerAwareTrait;
+    use SubscriberLoggerTrait;
 
     public const TAG_REL_NOFOLLOW = 'rel-nofollow';
     public const TAG_NO_TEXT_HTML_TYPE = 'no-txt-html-type';
@@ -52,7 +58,25 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
         foreach ($linkCrawler as $node) {
             $link = new Link($node, (string) $crawlUri->getUri()->withPath('')->withQuery('')->withFragment(''));
-            $uri = new Uri($link->getUri());
+
+            // We only support http(s):// links
+            if (!preg_match('@^https?://.*$@', $link->getUri())) {
+                continue;
+            }
+
+            try {
+                $uri = new Uri($link->getUri());
+            } catch (\InvalidArgumentException $e) {
+                $this->logWithCrawlUri(
+                    $crawlUri,
+                    LogLevel::DEBUG,
+                    sprintf(
+                        'Could not add "%s" to the queue because the link is invalid.',
+                        $link->getUri()
+                    )
+                );
+                continue;
+            }
 
             // Normalize uri
             $uri = CrawlUri::normalizeUri($uri);

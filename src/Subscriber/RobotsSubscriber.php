@@ -196,7 +196,13 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
                 foreach ($urls as $url) {
                     // Add it to the queue if not present already
-                    $this->escargot->addUriToQueue(new Uri((string) $url->loc), $foundOn);
+                    try {
+                        $uri = new Uri((string) $url->loc);
+                    } catch (\InvalidArgumentException $e) {
+                        continue;
+                    }
+
+                    $this->escargot->addUriToQueue($uri, $foundOn);
                 }
             } catch (TransportExceptionInterface $exception) {
                 continue;

@@ -1,0 +1,1 @@
+Test invalid <a href="http://"> links are ignored
