@@ -8,6 +8,6 @@ x-robots-tag: nofollow
 <head>
 </head>
 <body>
-    <a href="https://www.terminal42.ch/foobar">
+    <a href="https://www.terminal42.ch/foobar">Link</a>
 </body>
 </html>

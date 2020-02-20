@@ -7,6 +7,6 @@ content-type: text/html; charset=UTF-8
 <head>
 </head>
 <body>
-    <a href="https://www.terminal42.ch/foobar">
+    <a href="https://www.terminal42.ch/foobar">Link</a>
 </body>
 </html>
