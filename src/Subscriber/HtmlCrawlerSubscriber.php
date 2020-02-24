@@ -85,7 +85,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
             $newCrawlUri = $this->escargot->addUriToQueue($uri, $crawlUri);
 
             // Add a tag to the new CrawlUri instance if it was marked with rel="nofollow"
-            if ($node->hasAttribute('rel') && 'nofollow' === $node->getAttribute('rel')) {
+            if ($node->hasAttribute('rel') && false !== strpos($node->getAttribute('rel'), 'nofollow')) {
                 $newCrawlUri->addTag(self::TAG_REL_NOFOLLOW);
             }
 
