@@ -562,24 +562,10 @@ final class Escargot
             $crawlUri
         );
 
+        // Make sure the response is canceled
+        $response->cancel();
+
         // Mark the responses as finished
-        if ($exception instanceof HttpExceptionInterface) {
-            if (null === $chunk) {
-                throw new \RuntimeException('Cannot throw an HttpException without providing any chunk!');
-            }
-
-            try {
-                // Mark request as finished if it's the last chunk
-                if ($chunk->isLast()) {
-                    $this->finishRequest($response);
-                }
-            } catch (TransportExceptionInterface $exception) {
-                $this->handleException($exception, $crawlUri, $response);
-
-                return;
-            }
-        }
-
         $this->finishRequest($response);
 
         // Call the subscribers
