@@ -38,6 +38,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
     public const TAG_NOINDEX = 'noindex';
     public const TAG_NOFOLLOW = 'nofollow';
     public const TAG_DISALLOWED_ROBOTS_TXT = 'disallowed-robots-txt';
+    public const TAG_IS_SITEMAP = 'is-sitemap';
 
     /**
      * @var array<string,File>
@@ -49,6 +50,11 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
      */
     public function shouldRequest(CrawlUri $crawlUri): string
     {
+        // Check if it is a sitemap previously found
+        if ($crawlUri->hasTag(self::TAG_IS_SITEMAP)) {
+            return self::DECISION_POSITIVE;
+        }
+
         // Add robots.txt information
         $this->handleDisallowedByRobotsTxtTag($crawlUri);
 
@@ -61,6 +67,11 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
      */
     public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
     {
+        // Check if it is a sitemap previously found
+        if ($crawlUri->hasTag(self::TAG_IS_SITEMAP)) {
+            return self::DECISION_POSITIVE;
+        }
+
         // Add tags
         if (\in_array('x-robots-tag', array_keys($response->getHeaders()), true)) {
             $xRobotsTagValue = $response->getHeaders()['x-robots-tag'][0];
@@ -77,6 +88,13 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
     public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
     {
+        // Check if it is a sitemap previously found
+        if ($crawlUri->hasTag(self::TAG_IS_SITEMAP)) {
+            $this->extractUrisFromSitemap($crawlUri, $response->getContent());
+
+            return;
+        }
+
         // We don't care about non HTML responses
         if (!Util::isOfContentType($response, 'text/html')) {
             return;
@@ -181,32 +199,55 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
     private function handleSitemap(CrawlUri $crawlUri, File $robotsTxt): void
     {
-        // Level 1 because 0 is the base URI and 1 is the robots.txt
-        $foundOn = new CrawlUri($this->getRobotsTxtUri($crawlUri), 1, true);
+        // The robots.txt is always level 1
+        $foundOnRobotsTxt = new CrawlUri($this->getRobotsTxtUri($crawlUri), 1, true);
 
         foreach ($robotsTxt->getNonGroupDirectives()->getByField('sitemap')->getDirectives() as $directive) {
             try {
-                $response = $this->escargot->getClient()->request('GET', $directive->getValue()->get());
-
-                if (200 !== $response->getStatusCode()) {
-                    continue;
-                }
-
-                $urls = new \SimpleXMLElement($response->getContent());
-
-                foreach ($urls as $url) {
-                    // Add it to the queue if not present already
-                    try {
-                        $uri = new Uri((string) $url->loc);
-                    } catch (\InvalidArgumentException $e) {
-                        continue;
-                    }
-
-                    $this->escargot->addUriToQueue($uri, $foundOn);
-                }
-            } catch (TransportExceptionInterface $exception) {
+                $sitemapUri = new Uri($directive->getValue()->get());
+            } catch (\InvalidArgumentException $e) {
+                $this->logWithCrawlUri(
+                    $crawlUri,
+                    LogLevel::DEBUG,
+                    sprintf(
+                        'Could not add sitemap URI "%s" to the queue because the URI is invalid.',
+                        $directive->getValue()->get()
+                    )
+                );
                 continue;
             }
+
+            // Normalize uri
+            $sitemapUri = CrawlUri::normalizeUri($sitemapUri);
+
+            // Add to queue and mark as being a sitemap
+            $newCrawlUri = $this->escargot->addUriToQueue($sitemapUri, $foundOnRobotsTxt);
+            $newCrawlUri->addTag(self::TAG_IS_SITEMAP);
+        }
+    }
+
+    private function extractUrisFromSitemap(CrawlUri $sitemapUri, string $content): void
+    {
+        $urls = new \SimpleXMLElement($content);
+
+        foreach ($urls as $url) {
+            // Add it to the queue if not present already
+            try {
+                $uri = new Uri((string) $url->loc);
+            } catch (\InvalidArgumentException $e) {
+                $this->logWithCrawlUri(
+                    $sitemapUri,
+                    LogLevel::DEBUG,
+                    sprintf(
+                        'Could not add URI "%s" found on in the sitemap to the queue because the URI is invalid.',
+                        (string) $url->loc
+                    )
+                );
+
+                continue;
+            }
+
+            $this->escargot->addUriToQueue($uri, $sitemapUri);
         }
     }
 }

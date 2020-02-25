@@ -33,7 +33,6 @@ use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 use Terminal42\Escargot\Subscriber\SubscriberInterface;
-use Terminal42\Escargot\Subscriber\Util;
 use Terminal42\Escargot\SubscriberLogger;
 use Terminal42\Escargot\SubscriberLoggerTrait;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
@@ -263,7 +262,7 @@ class EscargotTest extends TestCase
 
             public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
             {
-                return 200 === $response->getStatusCode() && Util::isOfContentType($response, 'text/html') ? SubscriberInterface::DECISION_POSITIVE : SubscriberInterface::DECISION_NEGATIVE;
+                return SubscriberInterface::DECISION_POSITIVE;
             }
 
             public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
