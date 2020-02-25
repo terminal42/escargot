@@ -42,13 +42,13 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
     public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
     {
-        // If it's an HTML response, we want the whole content to extract additional URIs
-        if (Util::isOfContentType($response, 'text/html')) {
-            return self::DECISION_POSITIVE;
+        // If it's not an HTML response, we cannot extract anything anyway
+        if (!Util::isOfContentType($response, 'text/html')) {
+            return self::DECISION_NEGATIVE;
         }
 
-        // Otherwise, we don't need the content
-        return self::DECISION_NEGATIVE;
+        // We don't want to force the request but if another subscriber does, we want to know the contents
+        return self::DECISION_ABSTAIN;
     }
 
     public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
