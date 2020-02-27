@@ -1,0 +1,4 @@
+https://www.terminal42.ch/foobar
+
+HTTP/2.0 200 OK
+X-EscargotTest-Info: {"redirect_count": 1, "redirect_url": "https://www.terminal42.ch"}

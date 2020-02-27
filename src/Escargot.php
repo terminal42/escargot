@@ -12,6 +12,7 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot;
 
+use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
@@ -415,6 +416,23 @@ final class Escargot
 
         try {
             if ($chunk->isFirst()) {
+                // If the response was a redirect of an URI we have already crawled, we can early abort
+                // this response as it has already been processed.
+                if ($response->getInfo('redirect_count') > 0
+                    && $response->getInfo('redirect_url')
+                    && null !== $this->queue->get($this->getJobId(), CrawlUri::normalizeUri(new Uri((string) $response->getInfo('redirect_url'))))
+                ) {
+                    $this->log(
+                        LogLevel::DEBUG,
+                        'Skipped further response processing because crawler got redirected to an URI that\'s already been crawled.',
+                        $crawlUri
+                    );
+                    $response->cancel();
+                    $this->finishRequest($response);
+
+                    return;
+                }
+
                 // Makes sure an HttpException is thrown, no matter what the subscribers do to have a consistent
                 // behaviour. Otherwise whether or not the onHttpException() method would be called on the subscribers
                 // would depend on the fact if all subscribers check for the status code or not.
