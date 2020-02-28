@@ -419,8 +419,8 @@ final class Escargot
                 // If the response was a redirect of an URI we have already crawled, we can early abort
                 // this response as it has already been processed.
                 if ($response->getInfo('redirect_count') > 0
-                    && $response->getInfo('redirect_url')
-                    && null !== $this->queue->get($this->getJobId(), CrawlUri::normalizeUri(new Uri((string) $response->getInfo('redirect_url'))))
+                    && $response->getInfo('url')
+                    && null !== $this->queue->get($this->getJobId(), CrawlUri::normalizeUri(new Uri((string) $response->getInfo('url'))))
                 ) {
                     $this->log(
                         LogLevel::DEBUG,
