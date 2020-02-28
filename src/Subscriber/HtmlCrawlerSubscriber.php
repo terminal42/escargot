@@ -17,7 +17,6 @@ use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
 use Symfony\Component\DomCrawler\Crawler;
-use Symfony\Component\DomCrawler\Link;
 use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
@@ -54,11 +53,9 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
     public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
     {
         $crawler = new Crawler($response->getContent());
-
-        foreach ($linkCrawler as $node) {
-            $link = new Link($node, (string) $crawlUri->getUri()->withPath('')->withQuery('')->withFragment(''));
         $linkCrawler = $crawler->filterXPath('descendant-or-self::a');
 
+        foreach ($linkCrawler->links() as $link) {
             // We only support http(s):// links
             if (!preg_match('@^https?://.*$@', $link->getUri())) {
                 continue;
@@ -83,6 +80,8 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
             // Add to queue
             $newCrawlUri = $this->escargot->addUriToQueue($uri, $crawlUri);
+
+            $node = $link->getNode();
 
             // Add a tag to the new CrawlUri instance if it was marked with rel="nofollow"
             if ($node->hasAttribute('rel') && false !== strpos($node->getAttribute('rel'), 'nofollow')) {

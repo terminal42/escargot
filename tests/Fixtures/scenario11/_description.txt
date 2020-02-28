@@ -1,0 +1,1 @@
+Test if <base> tag is correctly interpreted
