@@ -30,8 +30,13 @@ class MockResponseFactory
         $mappedHeaders = [];
 
         foreach ($headers as $headerLine) {
-            [$k, $v] = explode(':', $headerLine);
+            [$k, $v] = explode(':', $headerLine, 2);
             $mappedHeaders[strtolower($k)][] = $v;
+        }
+
+        if (isset($mappedHeaders['x-escargottest-info'])) {
+            $info = array_merge($info, json_decode($mappedHeaders['x-escargottest-info'][0], true));
+            unset($mappedHeaders['x-escargottest-info']);
         }
 
         $info['response_headers'] = $mappedHeaders;

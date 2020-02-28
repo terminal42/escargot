@@ -1,0 +1,3 @@
+Test that redirects which end up in already crawled URIs are not forwarded to the subscribers
+again (they are of course during the shouldRequest phase as the URI is different but they're not during the
+needsContent and the onLastChunk phase).

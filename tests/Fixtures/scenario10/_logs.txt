@@ -1,0 +1,2 @@
+[Terminal42\Escargot\Escargot] [URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: none)] Skipped further response processing because crawler got redirected to an URI that's already been crawled.
+[Terminal42\Escargot\Escargot] Finished crawling! Sent 2 request(s).
