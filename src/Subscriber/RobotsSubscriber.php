@@ -101,7 +101,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         }
 
         $crawler = new Crawler($response->getContent());
-        $metaCrawler = $crawler->filter('head meta[name="robots"]');
+        $metaCrawler = $crawler->filterXPath('descendant-or-self::head/descendant-or-self::*/meta[@name = \'robots\']');
         $robotsMetaTagValue = $metaCrawler->count() ? $metaCrawler->first()->attr('content') : '';
 
         $this->handleNoindexNofollowTags(

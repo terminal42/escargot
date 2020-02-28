@@ -21,7 +21,6 @@
         "nyholm/psr7": "^1.1",
         "psr/http-message": "^1.0",
         "psr/log": "^1.1",
-        "symfony/css-selector": "^4.3",
         "symfony/dom-crawler": "^4.3",
         "symfony/event-dispatcher": "^4.3",
         "symfony/http-client": "^4.3.6",
