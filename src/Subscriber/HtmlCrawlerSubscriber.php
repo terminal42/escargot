@@ -52,7 +52,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
     public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
     {
-        $crawler = new Crawler($response->getContent());
+        $crawler = new Crawler($response->getContent(), (string) $crawlUri->getUri());
         $linkCrawler = $crawler->filterXPath('descendant-or-self::a');
 
         foreach ($linkCrawler->links() as $link) {

@@ -1,0 +1,9 @@
+https://www.terminal42.ch/
+
+HTTP/2.0 200 OK
+content-type: text/html; charset=UTF-8
+
+<html>
+<body>
+    <a href="#foobar">Relative link</a>
+</html>

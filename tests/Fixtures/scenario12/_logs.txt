@@ -1,0 +1,1 @@
+[Terminal42\Escargot\Escargot] Finished crawling! Sent 1 request(s).
