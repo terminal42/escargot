@@ -588,6 +588,15 @@ final class Escargot
         // Call the subscribers
         foreach ($this->subscribers as $subscriber) {
             if ($subscriber instanceof ExceptionSubscriberInterface) {
+                $requestDecisions = [];
+                $requestDecisions[] = $this->getDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber);
+                $requestDecisions[] = $this->getDecisionForSubscriber('needsContent', $crawlUri, $subscriber);
+
+                // If the subscriber did not initiate the request, it also doesn't need the exception
+                if (\in_array(SubscriberInterface::DECISION_NEGATIVE, $requestDecisions, true)) {
+                    continue;
+                }
+
                 switch (true) {
                     case $exception instanceof TransportExceptionInterface:
                         $subscriber->onTransportException($crawlUri, $exception, $response);
