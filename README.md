@@ -441,20 +441,21 @@ There are different configurations you can apply to the `Escargot` instance:
    Returns a clone of the `Escargot` instance with your PSR-3 `Psr\Log\LoggerInterface` instance to gain more insight
    in what's happening in `Escargot`.
    
+### Projects that use Escargot
+
+* [Contao, an open source CMS](https://contao.org) uses `Escargot` as of
+  version 4.9, and it greatly improved the way search indexing works.
+   
 ### Roadmap / Ideas
 
 * This is just an alpha version so please expect things to break. I'm going to follow SemVer for this library
   which is why we have 0.x version numbers for now unit I personally find it to be stable enough to release 
-  version 1.0.0.
+  version 1.0.0. Feel free to create an issue if you think things are stable and you need a version 1.0.0.
   
 * What about having `Escargot` interpret JavaScript before starting to crawl the content? Should be possible
   by having an `HttpClientInterface` implementation that bridges to `symfony/panther` or `facebook/webdriver`
   directly. PR's welcome!
 
 * Maybe one day, some talented illustrator finds this library and enhances it with a nice logo? :-)
-  
-* I'm a core dev member of [Contao, an open source CMS](https://contao.org). I would like to integrate `Escargot` there
-  in one of the upcoming versions to improve the way search indexing is achieved. I guess you should know that I will
-  likely not be tagging it stable before I've finished the integration but we'll see.
 
 [Symfony_HTTPClient]: https://symfony.com/doc/current/components/http_client.html
