@@ -265,7 +265,6 @@ by default:
     
   * Sets `CrawlUri` tags if the link contained the `rel="nofollow` attribute.
   * Sets `CrawlUri` tags if the link contained the attribute `type` and the value was not equal to `text/html`.
-  * Sets `CrawlUri` tags if the link points to any host which is not part of the `BaseUriCollection`.
  
   This subscriber will never cause any requests to be executed because it doesn't care if anything is
   requested.
