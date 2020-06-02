@@ -34,9 +34,6 @@ composer require terminal42/escargot
 Everything in `Escargot` is assigned to a job ID. The reason for this design is that crawling huge amounts of URIs
 can take very long and chances that you'll want to stop at some point and pick up where you left are pretty high.
 For that matter, every `Escargot` instance also needs a queue plus a base URI collection as to where to start crawling.
-Of course, because we execute requests, we can also provide an instance of `Symfony\Component\HttpClient\HttpClientInterface`
-but that's completely optional. If you do not provide any client, `HttpClient::create()` will be used and the best
-client is automatically chosen for you.
 
 #### Instantiating Escargot
 
@@ -57,25 +54,6 @@ $queue = new InMemoryQueue();
 $escargot = Escargot::create($baseUris, $queue);
 ```
 
-If you want to use a special `HttpClientInterface` implementation, you can provide this as the third argument:
-
-```php
-<?php
-
-use Nyholm\Psr7\Uri;
-use Symfony\Component\HttpClient\CurlHttpClient;
-use Terminal42\Escargot\BaseUriCollection;
-use Terminal42\Escargot\Escargot;
-use Terminal42\Escargot\Queue\InMemoryQueue;
-
-$baseUris = new BaseUriCollection();
-$baseUris->add(new Uri('https://www.terminal42.ch'));
-$queue = new InMemoryQueue();
-$client = new CurlHttpClient(['custom' => 'options']);
-        
-$escargot = Escargot::create($baseUris, $queue, $client);
-```
-
 In case you already do have a job ID because you have initiated crawling previously we do not need any base URI collection
 anymore but the job ID instead (again `$client` is completely optional):
 
@@ -87,9 +65,8 @@ use Terminal42\Escargot\Escargot;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 
 $queue = new InMemoryQueue();
-$client = new CurlHttpClient(['custom' => 'options']); // optional
         
-$escargot = Escargot::createFromJobId($jobId, $queue, $client);
+$escargot = Escargot::createFromJobId($jobId, $queue);
 ```
    
 #### The different queue implementations
@@ -415,6 +392,13 @@ class MyWebCrawler implements SubscriberInterface, LoggerAwareInterface
 
 There are different configurations you can apply to the `Escargot` instance:
 
+* `Escargot::withHttpClient(HttpClientInterface $client): Escargot`
+
+   You can provide an instance of `Symfony\Component\HttpClient\HttpClientInterface` if you want to use a specific
+   implementation or configure it with your custom options.
+   If you do not provide any client, `HttpClient::create()` will be used and thus, the best client is being
+   automatically chosen for you.
+
 * `Escargot::withMaxRequests(int $maxRequests): Escargot`
 
    Returns a clone of the `Escargot` instance with a maximum total requests that are going to be executed. It can be
@@ -423,7 +407,8 @@ There are different configurations you can apply to the `Escargot` instance:
 * `Escargot::withUserAgent(string $userAgent): Escargot`
 
    Returns a clone of the `Escargot` instance with a different `User-Agent` header. The header is sent with all the
-   requests and by default configured to `terminal42/escargot`.
+   requests and by default configured to `terminal42/escargot`. Note: This only applies if you did not configure
+   your own instance of `HttpClientInterface` using `Escargot::withHttpClient()`.
 
 * `Escargot::withConcurrency(int $concurrency): Escargot`
 

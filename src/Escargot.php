@@ -123,9 +123,8 @@ final class Escargot
      */
     private $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
 
-    private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris, ?HttpClientInterface $client = null)
+    private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris)
     {
-        $this->client = $client;
         $this->queue = $queue;
         $this->jobId = $jobId;
         $this->baseUris = $baseUris;
@@ -140,6 +139,14 @@ final class Escargot
                 $subscriber->setEscargot($this);
             }
         }
+    }
+
+    public function withHttpClient(HttpClientInterface $client): self
+    {
+        $new = clone $this;
+        $new->client = $client;
+
+        return $new;
     }
 
     public function getUserAgent(): string
@@ -274,7 +281,7 @@ final class Escargot
         return $this->requestsSent;
     }
 
-    public static function createFromJobId(string $jobId, QueueInterface $queue, ?HttpClientInterface $client = null): self
+    public static function createFromJobId(string $jobId, QueueInterface $queue): self
     {
         if (!$queue->isJobIdValid($jobId)) {
             throw new InvalidJobIdException(sprintf('Job ID "%s" is invalid!', $jobId));
@@ -283,12 +290,11 @@ final class Escargot
         return new self(
             $queue,
             $jobId,
-            $queue->getBaseUris($jobId),
-            $client
+            $queue->getBaseUris($jobId)
         );
     }
 
-    public static function create(BaseUriCollection $baseUris, QueueInterface $queue, ?HttpClientInterface $client = null): self
+    public static function create(BaseUriCollection $baseUris, QueueInterface $queue): self
     {
         if (0 === \count($baseUris)) {
             throw new InvalidJobIdException('Cannot create an Escargot instance with an empty BaseUriCollection!');
@@ -299,8 +305,7 @@ final class Escargot
         return new self(
             $queue,
             $jobId,
-            $baseUris,
-            $client
+            $baseUris
         );
     }
 

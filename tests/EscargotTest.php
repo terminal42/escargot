@@ -138,7 +138,8 @@ class EscargotTest extends TestCase
 
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::create($baseUris, $queue, new MockHttpClient($responseFactory));
+        $escargot = Escargot::create($baseUris, $queue);
+        $escargot = $escargot->withHttpClient(new MockHttpClient($responseFactory));
 
         if (0 !== \count($options)) {
             if (\array_key_exists('max_requests', $options)) {
