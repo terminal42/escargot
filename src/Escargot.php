@@ -29,6 +29,7 @@ use Terminal42\Escargot\Queue\QueueInterface;
 use Terminal42\Escargot\Subscriber\ExceptionSubscriberInterface;
 use Terminal42\Escargot\Subscriber\FinishedCrawlingSubscriberInterface;
 use Terminal42\Escargot\Subscriber\SubscriberInterface;
+use Terminal42\Escargot\Subscriber\TagValueResolvingSubscriberInterface;
 
 final class Escargot
 {
@@ -352,6 +353,22 @@ final class Escargot
     public function getCrawlUri(UriInterface $uri): ?CrawlUri
     {
         return $this->queue->get($this->jobId, $uri);
+    }
+
+    /**
+     * @return mixed|null
+     */
+    public function resolveTagValue(string $tag)
+    {
+        foreach ($this->subscribers as $subscriber) {
+            if ($subscriber instanceof TagValueResolvingSubscriberInterface) {
+                if (null !== ($value = $subscriber->resolveTagValue($tag))) {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function setLoggerToSubscriber(SubscriberInterface $subscriber): void

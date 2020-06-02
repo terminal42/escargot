@@ -210,6 +210,21 @@ The `RobotsSubscriber` for instance, tags `CrawlUri` instances when they contain
 in the body or the corresponding `X-Robots-Tag` header was set. All the links found on this URI are then not followed
 which happens during the next `shouldRequest()` call.
 
+There may be use cases where a tag is not enough. Let's say you had a subscriber that wants to add information to a `CrawlUri`
+instance it actually has to load from the filesystem or over HTTP again. Maybe no other subscriber ever uses that data? And
+how would you store all that information in the queue anyway? 
+That's why you can resolve tag values lazily.
+Doing so can be done by calling `$escargot->resolveTagValue($tag)`. Escargot then asks all subscribers that implement the
+`TagValueResolvingSubscriberInterface` for the resolved value.
+
+So if you want to provide lazy loaded information in your subscriber, just add a regular tag - say `my-file-info` and
+implement the `TagValueResolvingSubscriberInterface` that returns the real value once anybody asks for the value of
+that `my-file-info` tag.
+
+In other words, sometimes it's enough to only ask `$crawlUri->hasTag('foobar-tag')` and sometimes you may want to ask
+`Escargot` to resolve the tag value using `$escargot->resolveTagValue('foobar-tag')`.
+This totally depends on the subscriber.
+
 #### Crawling websites (HTML crawler)
 
 When people read the word «crawl» or «crawler» they usually immediately think of crawling websites. Granted, this is

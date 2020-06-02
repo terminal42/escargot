@@ -33,6 +33,7 @@ use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 use Terminal42\Escargot\Subscriber\SubscriberInterface;
+use Terminal42\Escargot\Subscriber\TagValueResolvingSubscriberInterface;
 use Terminal42\Escargot\SubscriberLogger;
 use Terminal42\Escargot\SubscriberLoggerTrait;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
@@ -126,6 +127,42 @@ class EscargotTest extends TestCase
 
         $queue = new InMemoryQueue();
         Escargot::createFromJobId('foobar', $queue);
+    }
+
+    public function testResolveTagValue(): void
+    {
+        $tagValueResolvingSubscriber = new class() implements SubscriberInterface, TagValueResolvingSubscriberInterface {
+            public function shouldRequest(CrawlUri $crawlUri): string
+            {
+                return self::DECISION_NEGATIVE;
+            }
+
+            public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
+            {
+                return self::DECISION_NEGATIVE;
+            }
+
+            public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
+            {
+            }
+
+            public function resolveTagValue(string $tag)
+            {
+                if ('foobar' === $tag) {
+                    return 'success';
+                }
+
+                return null;
+            }
+        };
+
+        $baseUris = new BaseUriCollection([new Uri('https://www.terminal42.ch/')]);
+        $queue = new InMemoryQueue();
+
+        $escargot = Escargot::create($baseUris, $queue);
+        $escargot->addSubscriber($tagValueResolvingSubscriber);
+
+        $this->assertSame('success', $escargot->resolveTagValue('foobar'));
     }
 
     /**
