@@ -83,6 +83,15 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
             $node = $link->getNode();
 
+            // Add all data attributes as tags for e.g. other subscribers
+            if ($node->hasAttributes()) {
+                foreach ($node->attributes as $attribute) {
+                    if (0 === strpos($attribute->name, 'data-')) {
+                        $newCrawlUri->addTag(substr($attribute->name, 5));
+                    }
+                }
+            }
+
             // Add a tag to the new CrawlUri instance if it was marked with rel="nofollow"
             if ($node->hasAttribute('rel') && false !== strpos($node->getAttribute('rel'), 'nofollow')) {
                 $newCrawlUri->addTag(self::TAG_REL_NOFOLLOW);
