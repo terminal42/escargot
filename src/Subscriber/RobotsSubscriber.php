@@ -199,6 +199,12 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
     private function handleSitemap(CrawlUri $crawlUri, File $robotsTxt): void
     {
+        // If we hit max depth level, we don't even need to do anything because we cannot add anything to the queue
+        // anymore (shouldn't happen because we're on level 0 here always)
+        if ($this->escargot->isMaxDepthReached($crawlUri)) {
+            return;
+        }
+
         // The robots.txt is always level 1
         $foundOnRobotsTxt = new CrawlUri($this->getRobotsTxtUri($crawlUri), 1, true);
 
@@ -228,6 +234,12 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
     private function extractUrisFromSitemap(CrawlUri $sitemapUri, string $content): void
     {
+        // If we hit max depth level, we don't even need to do anything because we cannot add anything to the queue
+        // anymore
+        if ($this->escargot->isMaxDepthReached($sitemapUri)) {
+            return;
+        }
+
         $urls = new \SimpleXMLElement($content);
 
         foreach ($urls as $url) {

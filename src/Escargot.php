@@ -337,10 +337,20 @@ final class Escargot
     /**
      * Adds an URI to the queue if not present already.
      *
-     * @return CrawlUri The new CrawlUri instance
+     * You are expected to handle max depth yourself. This is by design as you might not even need to do certain
+     * things before calling Escargot::addUriToQueue(). E.g. you don't need to parse any HTML if all the links found
+     * on this document would be ignored here anyway.
+     * You can use Escargot::isMaxDepthReached() for that.
+     *
+     * @return CrawlUri the new CrawlUri instance
+     * @throw \BadMethodCallException If max depth would be reached.
      */
     public function addUriToQueue(UriInterface $uri, CrawlUri $foundOn, bool $processed = false): CrawlUri
     {
+        if ($this->isMaxDepthReached($foundOn)) {
+            throw new \BadMethodCallException('Max depth configured is reached, you cannot add this URI.');
+        }
+
         $crawlUri = $this->getCrawlUri($uri);
         if (null === $crawlUri) {
             $crawlUri = new CrawlUri($uri, $foundOn->getLevel() + 1, $processed, $foundOn->getUri());
@@ -348,6 +358,15 @@ final class Escargot
         }
 
         return $crawlUri;
+    }
+
+    public function isMaxDepthReached(CrawlUri $foundOn): bool
+    {
+        if (0 === $this->getMaxDepth()) {
+            return false;
+        }
+
+        return $foundOn->getLevel() >= $this->getMaxDepth();
     }
 
     public function getCrawlUri(UriInterface $uri): ?CrawlUri
@@ -520,16 +539,6 @@ final class Escargot
                 $this->log(
                     LogLevel::DEBUG,
                     'Skipped because it\'s not a valid http(s) URI.',
-                    $crawlUri
-                );
-                continue;
-            }
-
-            // Stop crawling if we have reached max depth
-            if (0 !== $this->maxDepth && $this->maxDepth <= $crawlUri->getLevel()) {
-                $this->log(
-                    LogLevel::DEBUG,
-                    'Will not crawl as max depth is reached!',
                     $crawlUri
                 );
                 continue;

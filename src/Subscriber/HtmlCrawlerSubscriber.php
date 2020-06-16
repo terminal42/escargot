@@ -46,6 +46,12 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
             return self::DECISION_NEGATIVE;
         }
 
+        // If we hit max depth level, we don't even need to analyze the content because nothing is to be added
+        // to the queue anymore anyway
+        if ($this->escargot->isMaxDepthReached($crawlUri)) {
+            return self::DECISION_NEGATIVE;
+        }
+
         // We don't want to force the request but if another subscriber does, we want to know the contents
         return self::DECISION_ABSTAIN;
     }
