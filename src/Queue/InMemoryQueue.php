@@ -32,6 +32,7 @@ final class InMemoryQueue implements QueueInterface
     {
         $jobId = bin2hex(random_bytes(32));
 
+        $this->queue[$jobId] = [];
         $this->baseUris[$jobId] = $baseUris;
 
         foreach ($baseUris as $baseUri) {

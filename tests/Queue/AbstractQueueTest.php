@@ -128,4 +128,13 @@ abstract class AbstractQueueTest extends TestCase
         $queue->deleteJobId($jobId);
         $this->assertFalse($queue->isJobIdValid($jobId));
     }
+
+    public function testGetAllOnEmptyQueue(): void
+    {
+        $queue = $this->getQueue();
+        $jobId = $queue->createJobId(new BaseUriCollection());
+
+        $this->assertInstanceOf(\Generator::class, $queue->getAll($jobId));
+        $this->assertCount(0, iterator_to_array($queue->getAll($jobId)));
+    }
 }

@@ -224,10 +224,6 @@ final class DoctrineQueue implements QueueInterface
             ->setParameter(':jobId', $jobId, Types::STRING);
         $allData = $queryBuilder->execute()->fetchAll();
 
-        if (false === $allData) {
-            return null;
-        }
-
         foreach ($allData as $data) {
             yield $this->createCrawlUriFromRow($data);
         }
