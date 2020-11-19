@@ -16,21 +16,20 @@
         "source": "https://github.com/terminal42/escargot"
     },
     "require": {
-        "php": "^7.2",
+        "php": "^7.2 | ^8.0",
         "ext-simplexml": "*",
         "nyholm/psr7": "^1.1",
         "psr/http-message": "^1.0",
         "psr/log": "^1.1",
-        "symfony/dom-crawler": "^4.3 || ^5.0",
-        "symfony/event-dispatcher": "^4.3 || ^5.0",
-        "symfony/http-client": "^4.3.6 || ^5.0",
+        "symfony/dom-crawler": "^4.4 | ^5.0",
+        "symfony/event-dispatcher": "^4.4 | ^5.0",
+        "symfony/http-client": "^4.4 | ^5.0",
         "webignition/robots-txt-file": "^3.0"
     },
     "require-dev": {
         "doctrine/dbal": "^2.10",
-        "friendsofphp/php-cs-fixer": "^2.16.1",
-        "symfony/finder": "^4.4 || ^5.0",
-        "symfony/phpunit-bridge": "^4.4 || ^5.0"
+        "symfony/finder": "^4.4 | ^5.0",
+        "symfony/phpunit-bridge": "^5.1.8"
     },
     "config": {
         "preferred-install": {
