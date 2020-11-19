@@ -446,10 +446,6 @@ There are different configurations you can apply to the `Escargot` instance:
    
 ### Roadmap / Ideas
 
-* This is just an alpha version so please expect things to break. I'm going to follow SemVer for this library
-  which is why we have 0.x version numbers for now unit I personally find it to be stable enough to release 
-  version 1.0.0. Feel free to create an issue if you think things are stable and you need a version 1.0.0.
-  
 * What about having `Escargot` interpret JavaScript before starting to crawl the content? Should be possible
   by having an `HttpClientInterface` implementation that bridges to `symfony/panther` or `facebook/webdriver`
   directly. PR's welcome!
