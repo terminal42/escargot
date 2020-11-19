@@ -66,7 +66,7 @@ class EscargotTest extends TestCase
 
         $escargot = Escargot::create($baseUris, $queue);
 
-        $subscriber = $this->createMock([SubscriberInterface::class, EscargotAwareInterface::class, LoggerAwareInterface::class]);
+        $subscriber = $this->createMock(CompleteSubscriber::class);
         $subscriber
             ->expects($this->exactly(5))
             ->method('setEscargot');
@@ -98,7 +98,7 @@ class EscargotTest extends TestCase
         $baseUris = new BaseUriCollection();
         $queue = new InMemoryQueue();
 
-        $escargot = Escargot::create($baseUris, $queue);
+        Escargot::create($baseUris, $queue);
     }
 
     public function testFactories(): void
@@ -309,4 +309,8 @@ class EscargotTest extends TestCase
             }
         };
     }
+}
+
+abstract class CompleteSubscriber implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface
+{
 }

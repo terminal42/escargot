@@ -408,7 +408,7 @@ final class Escargot
             return;
         }
 
-        $context = ['source' => \get_class($this)];
+        $context = ['source' => static::class];
 
         if (null !== $crawlUri) {
             $context['crawlUri'] = $crawlUri;

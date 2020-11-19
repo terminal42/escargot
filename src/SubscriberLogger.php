@@ -30,7 +30,7 @@ class SubscriberLogger extends AbstractLogger
     public function __construct(LoggerInterface $decorated, string $subscriberClass)
     {
         // Anonymous class names contain null bytes so let's standardize them a little
-        if (0 === strpos($subscriberClass, 'class@anonymous')) {
+        if (false !== strpos($subscriberClass, '@anonymous')) {
             $subscriberClass = 'class@anonymous:'.basename($subscriberClass);
             $subscriberClass = preg_replace('/\.php(.+)$/', '', $subscriberClass);
         }

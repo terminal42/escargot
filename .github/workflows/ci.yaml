@@ -1,0 +1,81 @@
+name: CI
+
+on:
+    pull_request: ~
+    push:
+        branches:
+            - main
+        tags:
+            - '*'
+    schedule:
+        - cron: 0 13 * * MON
+
+jobs:
+    cs:
+        name: Coding Style
+        runs-on: ubuntu-latest
+        steps:
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: 7.4
+                  coverage: none
+                  tools: php-cs-fixer
+
+            -   name: Checkout
+                uses: actions/checkout@v2
+                
+            - name: Run the CS fixer
+              run: php-cs-fixer fix
+
+    tests:
+        name: PHP ${{ matrix.php }}
+        runs-on: ubuntu-latest
+        if: github.event_name != 'push'
+        strategy:
+            fail-fast: false
+            matrix:
+                php: [7.2, 7.3, 7.4, 8.0]
+        steps:
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ matrix.php }}
+                  extensions: json
+                  tools: prestissimo
+                  coverage: none
+
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Install the dependencies
+              run: composer install --no-interaction --no-suggest
+
+            - name: Run the unit tests
+              run: vendor/bin/simple-phpunit
+
+    prefer-lowest-tests:
+        name: Prefer Lowest
+        runs-on: ubuntu-latest
+        if: github.event_name != 'push'
+        strategy:
+            fail-fast: false
+            matrix:
+                php: [7.2, 7.3, 7.4, 8.0]
+        steps:
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ matrix.php }}
+                  extensions: json
+                  tools: prestissimo
+                  coverage: none
+
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Install the dependencies
+              run: composer update --prefer-lowest --prefer-stable --no-interaction --no-suggest
+
+            - name: Run the unit tests
+              run: vendor/bin/simple-phpunit
