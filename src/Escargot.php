@@ -610,9 +610,6 @@ final class Escargot
             $crawlUri
         );
 
-        // Make sure the response is canceled
-        $response->cancel();
-
         // Mark the responses as finished
         $this->finishRequest($response);
 
@@ -640,5 +637,9 @@ final class Escargot
                 }
             }
         }
+
+        // Make sure the response is canceled (after all the subscribers are called as they would otherwise get the
+        // canceled information rather than the original exception)
+        $response->cancel();
     }
 }
