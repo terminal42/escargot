@@ -24,6 +24,7 @@ use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
+use Terminal42\Escargot\Exception\ClientAlreadyCustomizedException;
 use Terminal42\Escargot\Exception\InvalidJobIdException;
 use Terminal42\Escargot\Queue\QueueInterface;
 use Terminal42\Escargot\Subscriber\ExceptionSubscriberInterface;
@@ -163,8 +164,15 @@ final class Escargot
         return $this->subscribers;
     }
 
+    /**
+     * @throws ClientAlreadyCustomizedException if you have already used Escargot::withHttpClient() before
+     */
     public function withUserAgent(string $userAgent): self
     {
+        if (null !== $this->client) {
+            throw new ClientAlreadyCustomizedException('Cannot override user agent, as you have already customized the client.');
+        }
+
         $new = clone $this;
         $new->userAgent = $userAgent;
 

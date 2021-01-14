@@ -29,6 +29,7 @@ use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
 use Terminal42\Escargot\EscargotAwareInterface;
 use Terminal42\Escargot\EscargotAwareTrait;
+use Terminal42\Escargot\Exception\ClientAlreadyCustomizedException;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
@@ -118,6 +119,20 @@ class EscargotTest extends TestCase
 
         $this->assertSame($jobId, $escargot->getJobId());
         $this->assertSame($queue, $escargot->getQueue());
+    }
+
+    public function testCannotChangeUserAgentIfAlreadyCustomizedHttpClient(): void
+    {
+        $this->expectException(ClientAlreadyCustomizedException::class);
+        $this->expectExceptionMessage('Cannot override user agent, as you have already customized the client.');
+
+        $baseUris = new BaseUriCollection();
+        $baseUris->add(new Uri('https://www.terminal42.ch'));
+
+        $escargot = Escargot::create($baseUris, new InMemoryQueue());
+        $escargot = $escargot->withHttpClient(new MockHttpClient());
+
+        $escargot->withUserAgent('custom/user-agent');
     }
 
     public function testInvalidJobId(): void
