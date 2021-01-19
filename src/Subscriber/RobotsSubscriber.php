@@ -240,7 +240,11 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             return;
         }
 
-        $urls = new \SimpleXMLElement($content);
+        try {
+            $urls = new \SimpleXMLElement($content);
+        } catch (\Exception $exception) {
+            return;
+        }
 
         foreach ($urls as $url) {
             // Add it to the queue if not present already

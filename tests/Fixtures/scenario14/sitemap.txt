@@ -1,0 +1,6 @@
+https://www.terminal42.ch/sitemap.xml
+
+HTTP/2.0 200 OK
+content-type: application/xml
+
+I am not XML but I should be.
