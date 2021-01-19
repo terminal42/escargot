@@ -1,0 +1,2 @@
+Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root, Tags: none).
+Successful request! URI: https://www.terminal42.ch/foobar (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: none).

@@ -1,0 +1,13 @@
+https://www.terminal42.ch/
+
+HTTP/2.0 200 OK
+content-type: text/html; charset=UTF-8
+
+<html>
+<head>
+    <meta name="robots"><!-- This is the error -->
+</head>
+<body>
+    <a href="https://www.terminal42.ch/foobar">Link</a>
+</body>
+</html>
