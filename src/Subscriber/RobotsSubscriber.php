@@ -240,9 +240,14 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             return;
         }
 
+        set_error_handler(function ($errno, $errstr) {
+            throw new \Exception($errstr, $errno);
+        });
         try {
             $urls = new \SimpleXMLElement($content);
         } catch (\Exception $exception) {
+            restore_error_handler();
+
             return;
         }
 
