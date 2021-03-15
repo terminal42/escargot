@@ -22,6 +22,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\EscargotAwareInterface;
 use Terminal42\Escargot\EscargotAwareTrait;
+use Terminal42\Escargot\HttpUriFactory;
 use Terminal42\Escargot\SubscriberLoggerTrait;
 
 final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface
@@ -68,7 +69,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
             }
 
             try {
-                $uri = new Uri($link->getUri());
+                $uri = HttpUriFactory::create($link->getUri());
             } catch (\InvalidArgumentException $e) {
                 $this->logWithCrawlUri(
                     $crawlUri,

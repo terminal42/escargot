@@ -17,10 +17,10 @@ use Doctrine\DBAL\Schema\Schema;
 use Doctrine\DBAL\Schema\Synchronizer\SchemaSynchronizer;
 use Doctrine\DBAL\Schema\Synchronizer\SingleDatabaseSynchronizer;
 use Doctrine\DBAL\Types\Types;
-use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
+use Terminal42\Escargot\HttpUriFactory;
 
 final class DoctrineQueue implements QueueInterface
 {
@@ -100,7 +100,7 @@ final class DoctrineQueue implements QueueInterface
         $uris = $queryBuilder->execute()->fetchAll(\PDO::FETCH_COLUMN);
 
         foreach ($uris as $uri) {
-            $baseUris->add(new Uri($uri));
+            $baseUris->add(HttpUriFactory::create($uri));
         }
 
         return $baseUris;
@@ -278,10 +278,10 @@ final class DoctrineQueue implements QueueInterface
         $foundOn = null;
 
         if ($data['found_on']) {
-            $foundOn = new Uri($data['found_on']);
+            $foundOn = HttpUriFactory::create($data['found_on']);
         }
 
-        $crawlUri = new CrawlUri(new Uri($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
+        $crawlUri = new CrawlUri(HttpUriFactory::create($data['uri']), (int) $data['level'], (bool) $data['processed'], $foundOn);
 
         if ($data['tags']) {
             foreach (explode(',', $data['tags']) as $tag) {

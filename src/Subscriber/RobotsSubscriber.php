@@ -24,6 +24,7 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\EscargotAwareInterface;
 use Terminal42\Escargot\EscargotAwareTrait;
+use Terminal42\Escargot\HttpUriFactory;
 use Terminal42\Escargot\SubscriberLoggerTrait;
 use webignition\RobotsTxt\File\File;
 use webignition\RobotsTxt\File\Parser;
@@ -210,7 +211,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
         foreach ($robotsTxt->getNonGroupDirectives()->getByField('sitemap')->getDirectives() as $directive) {
             try {
-                $sitemapUri = new Uri($directive->getValue()->get());
+                $sitemapUri = HttpUriFactory::create($directive->getValue()->get());
             } catch (\InvalidArgumentException $e) {
                 $this->logWithCrawlUri(
                     $crawlUri,
@@ -254,7 +255,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         foreach ($urls as $url) {
             // Add it to the queue if not present already
             try {
-                $uri = new Uri((string) $url->loc);
+                $uri = HttpUriFactory::create((string) $url->loc);
             } catch (\InvalidArgumentException $e) {
                 $this->logWithCrawlUri(
                     $sitemapUri,
