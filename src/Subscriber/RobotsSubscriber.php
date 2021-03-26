@@ -170,7 +170,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         $robotsTxtUri = $this->getRobotsTxtUri($crawlUri);
 
         // Check the cache
-        if (isset($this->robotsTxtCache[(string) $robotsTxtUri])) {
+        if (\array_key_exists((string) $robotsTxtUri, $this->robotsTxtCache)) {
             return $this->robotsTxtCache[(string) $robotsTxtUri];
         }
 
