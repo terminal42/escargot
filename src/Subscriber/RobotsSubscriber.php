@@ -247,9 +247,9 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         try {
             $urls = new \SimpleXMLElement($content);
         } catch (\Exception $exception) {
-            restore_error_handler();
-
             return;
+        } finally {
+            restore_error_handler();
         }
 
         foreach ($urls as $url) {
