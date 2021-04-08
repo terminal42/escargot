@@ -259,6 +259,8 @@ by default:
  
   This subscriber will never cause any requests to be executed because it doesn't care if anything is
   requested.
+  
+  Note: You can use `data-escargot-ignore` on links if you want them to be ignored completely by the `HtmlCrawlerSubscriber`.
  
 Using them is done like so:
 

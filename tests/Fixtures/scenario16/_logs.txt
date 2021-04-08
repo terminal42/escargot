@@ -1,0 +1,2 @@
+[Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber] [URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root, Tags: none)] Did not add "https://www.terminal42.ch/foobar" to the queue because it was marked as "data-escargot-ignore".
+[Terminal42\Escargot\Escargot] Finished crawling! Sent 1 request(s).

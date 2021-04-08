@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Subscriber;
 
-use Nyholm\Psr7\Uri;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
@@ -82,13 +81,24 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
                 continue;
             }
 
-            // Normalize uri
             $uri = CrawlUri::normalizeUri($uri);
+            $node = $link->getNode();
+
+            // Skip completely
+            if ($node->hasAttribute('data-escargot-ignore')) {
+                $this->logWithCrawlUri(
+                    $crawlUri,
+                    LogLevel::DEBUG,
+                    sprintf(
+                        'Did not add "%s" to the queue because it was marked as "data-escargot-ignore".',
+                        $link->getUri()
+                    )
+                );
+                continue;
+            }
 
             // Add to queue
             $newCrawlUri = $this->escargot->addUriToQueue($uri, $crawlUri);
-
-            $node = $link->getNode();
 
             // Add all data attributes as tags for e.g. other subscribers
             if ($node->hasAttributes()) {
