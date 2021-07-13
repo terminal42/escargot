@@ -299,7 +299,7 @@ class MyWebCrawler implements SubscriberInterface, EscargotAwareInterface
     public function shouldRequest(CrawlUri $crawlUri): string
     {
         // Check the original crawlUri to see if that one contained nofollow information
-        if (null !== $crawlUri->getFoundOn() && ($originalCrawlUri = $this->escargot->getCrawlUri($crawlUri->getFoundOn()))) {
+        if (null !== $crawlUri->getFoundOn() && ($originalCrawlUri = $this->getEscargot()->getCrawlUri($crawlUri->getFoundOn()))) {
             if ($originalCrawlUri->hasTag(RobotsSubscriber::TAG_NOFOLLOW)) {
                 return SubscriberInterface::DECISION_NEGATIVE;
             }
