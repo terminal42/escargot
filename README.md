@@ -314,6 +314,12 @@ class MyWebCrawler implements SubscriberInterface, EscargotAwareInterface
         if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_REL_NOFOLLOW)) {
             return SubscriberInterface::DECISION_NEGATIVE;
         }
+        
+        // Hint: All of the above are typical for HTML crawlers, so there's a helper for you
+        // to simplify this:
+        if (!Util::isAllowedToFollow($crawlUri, $this->getEscargot())) {
+            return SubscriberInterface::DECISION_NEGATIVE;
+        }
     
         // Skip the links that have the "type" attribute set and it's not text/html
         if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_NO_TEXT_HTML_TYPE)) {
