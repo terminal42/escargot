@@ -253,7 +253,7 @@ by default:
   This subscriber analyzes the HTML and then searches for links and adds those to the queue.
   It
     
-  * Sets `CrawlUri` tags if the link contained the `rel="nofollow` attribute.
+  * Sets `CrawlUri` tags if the link contained the `rel="nofollow"` attribute.
   * Sets `CrawlUri` tags if the link contained the attribute `type` and the value was not equal to `text/html`.
   * Sets `CrawlUri` tags for every `data-*` attribute (e.g. `foobar-tag` for `data-foobar-tag`). Values are ignored.
  
@@ -303,6 +303,11 @@ class MyWebCrawler implements SubscriberInterface, EscargotAwareInterface
             if ($originalCrawlUri->hasTag(RobotsSubscriber::TAG_NOFOLLOW)) {
                 return SubscriberInterface::DECISION_NEGATIVE;
             }
+        }
+        
+        // Skip links that were disallowed by the robots.txt
+        if ($crawlUri->hasTag(RobotsSubscriber::TAG_DISALLOWED_ROBOTS_TXT)) {
+            return SubscriberInterface::DECISION_NEGATIVE;
         }
     
         // Skip rel="nofollow" links
