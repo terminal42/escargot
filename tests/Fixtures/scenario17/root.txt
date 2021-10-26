@@ -1,0 +1,12 @@
+https://www.terminal42.ch/
+
+HTTP/2.0 200 OK
+content-type: text/html; charset=UTF-8
+
+<html>
+    <head>
+        <link rel="canonical" href="https://www.terminal42.ch/canonical" />
+    </head>
+    <body>
+    </body>
+</html>

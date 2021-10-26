@@ -59,65 +59,78 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
     public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
     {
         $crawler = new Crawler($response->getContent(), (string) $crawlUri->getUri());
+
+        // Links
         $linkCrawler = $crawler->filterXPath('descendant-or-self::a');
-
         foreach ($linkCrawler->links() as $link) {
-            // We only support http(s):// links
-            if (!preg_match('@^https?://.*$@', $link->getUri())) {
-                continue;
-            }
+            $this->addNewUriToQueueFromNode($crawlUri, $link->getUri(), $link->getNode());
+        }
 
-            try {
-                $uri = HttpUriFactory::create($link->getUri());
-            } catch (\InvalidArgumentException $e) {
-                $this->logWithCrawlUri(
-                    $crawlUri,
-                    LogLevel::DEBUG,
-                    sprintf(
-                        'Could not add "%s" to the queue because the link is invalid.',
-                        $link->getUri()
-                    )
-                );
-                continue;
-            }
+        // Canonical
+        $canonicalCrawler = $crawler->filterXPath('descendant-or-self::head/descendant-or-self::*/link[@rel = \'canonical\'][@href]');
+        if ($canonicalCrawler->count()) {
+            $this->addNewUriToQueueFromNode($crawlUri, $canonicalCrawler->first()->attr('href'), $canonicalCrawler->first()->getNode(0));
+        }
+    }
 
-            $uri = CrawlUri::normalizeUri($uri);
-            $node = $link->getNode();
+    private function addNewUriToQueueFromNode(CrawlUri $crawlUri, string $uri, \DOMElement $node): void
+    {
+        // We only support http(s):// URIs
+        if (!preg_match('@^https?://.*$@', $uri)) {
+            return;
+        }
 
-            // Skip completely
-            if ($node->hasAttribute('data-escargot-ignore')) {
-                $this->logWithCrawlUri(
-                    $crawlUri,
-                    LogLevel::DEBUG,
-                    sprintf(
-                        'Did not add "%s" to the queue because it was marked as "data-escargot-ignore".',
-                        $link->getUri()
-                    )
-                );
-                continue;
-            }
+        try {
+            $uri = HttpUriFactory::create($uri);
+        } catch (\InvalidArgumentException $e) {
+            $this->logWithCrawlUri(
+                $crawlUri,
+                LogLevel::DEBUG,
+                sprintf(
+                    'Could not add "%s" to the queue because the link is invalid.',
+                    $uri
+                )
+            );
 
-            // Add to queue
-            $newCrawlUri = $this->escargot->addUriToQueue($uri, $crawlUri);
+            return;
+        }
 
-            // Add all data attributes as tags for e.g. other subscribers
-            if ($node->hasAttributes()) {
-                foreach ($node->attributes as $attribute) {
-                    if (0 === strpos($attribute->name, 'data-')) {
-                        $newCrawlUri->addTag(substr($attribute->name, 5));
-                    }
+        $uri = CrawlUri::normalizeUri($uri);
+
+        // Skip completely
+        if ($node->hasAttribute('data-escargot-ignore')) {
+            $this->logWithCrawlUri(
+                $crawlUri,
+                LogLevel::DEBUG,
+                sprintf(
+                    'Did not add "%s" to the queue because it was marked as "data-escargot-ignore".',
+                    $uri
+                )
+            );
+
+            return;
+        }
+
+        // Add to queue
+        $newCrawlUri = $this->escargot->addUriToQueue($uri, $crawlUri);
+
+        // Add all data attributes as tags for e.g. other subscribers
+        if ($node->hasAttributes()) {
+            foreach ($node->attributes as $attribute) {
+                if (0 === strpos($attribute->name, 'data-')) {
+                    $newCrawlUri->addTag(substr($attribute->name, 5));
                 }
             }
+        }
 
-            // Add a tag to the new CrawlUri instance if it was marked with rel="nofollow"
-            if ($node->hasAttribute('rel') && false !== strpos($node->getAttribute('rel'), 'nofollow')) {
-                $newCrawlUri->addTag(self::TAG_REL_NOFOLLOW);
-            }
+        // Add a tag to the new CrawlUri instance if it was marked with rel="nofollow"
+        if ($node->hasAttribute('rel') && false !== strpos($node->getAttribute('rel'), 'nofollow')) {
+            $newCrawlUri->addTag(self::TAG_REL_NOFOLLOW);
+        }
 
-            // Add a tag to the new CrawlUri instance if it was marked with a type attribute and it did not contain "text/html"
-            if ($node->hasAttribute('type') && 'text/html' !== $node->getAttribute('type')) {
-                $newCrawlUri->addTag(self::TAG_NO_TEXT_HTML_TYPE);
-            }
+        // Add a tag to the new CrawlUri instance if it was marked with a type attribute and it did not contain "text/html"
+        if ($node->hasAttribute('type') && 'text/html' !== $node->getAttribute('type')) {
+            $newCrawlUri->addTag(self::TAG_NO_TEXT_HTML_TYPE);
         }
     }
 }
