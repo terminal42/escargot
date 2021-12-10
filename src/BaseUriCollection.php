@@ -83,7 +83,7 @@ final class BaseUriCollection implements \IteratorAggregate, \Countable
     /**
      * {@inheritdoc}
      */
-    public function getIterator()
+    public function getIterator(): \Traversable
     {
         return new \ArrayIterator($this->all());
     }
@@ -91,7 +91,7 @@ final class BaseUriCollection implements \IteratorAggregate, \Countable
     /**
      * {@inheritdoc}
      */
-    public function count()
+    public function count(): int
     {
         return \count($this->all());
     }
