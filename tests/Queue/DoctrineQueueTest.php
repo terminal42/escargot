@@ -23,7 +23,7 @@ class DoctrineQueueTest extends AbstractQueueTest
      */
     private $queue;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         $this->queue = new DoctrineQueue(DriverManager::getConnection(['url' => 'sqlite://:memory:']), function () {
             return 'foobar';

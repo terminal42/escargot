@@ -241,7 +241,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             return;
         }
 
-        set_error_handler(function ($errno, $errstr) {
+        set_error_handler(function ($errno, $errstr): void {
             throw new \Exception($errstr, $errno);
         });
         try {
