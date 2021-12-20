@@ -19,6 +19,7 @@ use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LogLevel;
 use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Contracts\HttpClient\ChunkInterface;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\CrawlUri;
@@ -177,11 +178,11 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         try {
             $response = $this->escargot->getClient()->request('GET', (string) $robotsTxtUri);
 
-            if (200 !== $response->getStatusCode()) {
+            try {
+                $robotsTxtContent = $response->getContent();
+            } catch (HttpExceptionInterface $e) {
                 return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
             }
-
-            $robotsTxtContent = $response->getContent();
 
             $parser = new Parser();
             $parser->setSource($robotsTxtContent);
@@ -241,7 +242,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             return;
         }
 
-        set_error_handler(function ($errno, $errstr) {
+        set_error_handler(function ($errno, $errstr): void {
             throw new \Exception($errstr, $errno);
         });
         try {

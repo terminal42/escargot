@@ -18,7 +18,7 @@ use Terminal42\Escargot\BaseUriCollection;
 
 class BaseUriCollectionTest extends TestCase
 {
-    public function testAddingUris()
+    public function testAddingUris(): void
     {
         $uri1 = new Uri('https://terminal42.ch');
         $uri2 = new Uri('https://github.com');
@@ -34,7 +34,7 @@ class BaseUriCollectionTest extends TestCase
         $this->assertCount(2, $collection);
     }
 
-    public function testContains()
+    public function testContains(): void
     {
         $uri1 = new Uri('https://terminal42.ch');
         $uri2 = new Uri('https://github.com');
@@ -44,7 +44,7 @@ class BaseUriCollectionTest extends TestCase
         $this->assertFalse($collection->contains($uri2));
     }
 
-    public function testContainsHost()
+    public function testContainsHost(): void
     {
         $uri1 = new Uri('https://terminal42.ch');
         $uri2 = new Uri('https://github.com');
@@ -56,7 +56,7 @@ class BaseUriCollectionTest extends TestCase
         $this->assertFalse($collection->containsHost('foobar.com'));
     }
 
-    public function testMerge()
+    public function testMerge(): void
     {
         $uri1 = new Uri('https://terminal42.ch');
         $uri2 = new Uri('https://github.com');

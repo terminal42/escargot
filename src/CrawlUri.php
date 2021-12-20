@@ -63,7 +63,7 @@ final class CrawlUri
             (string) $this->getUri(),
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',
-            (string) ($this->getFoundOn() ? $this->getFoundOn() : 'root'),
+            (string) ($this->getFoundOn() ?: 'root'),
             $this->getTags() ? implode(', ', $this->getTags()) : 'none'
         );
     }
