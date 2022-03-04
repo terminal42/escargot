@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Tests\Queue;
 
 use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Schema\Table;
 use Terminal42\Escargot\Queue\DoctrineQueue;
 use Terminal42\Escargot\Queue\QueueInterface;
 
@@ -35,5 +36,10 @@ class DoctrineQueueTest extends AbstractQueueTest
     public function getQueue(): QueueInterface
     {
         return $this->queue;
+    }
+
+    public function testGetTableSchema(): void
+    {
+        $this->assertInstanceOf(Table::class, $this->queue->getTableSchema());
     }
 }

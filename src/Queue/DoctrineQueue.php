@@ -14,7 +14,7 @@ namespace Terminal42\Escargot\Queue;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Schema\Comparator;
-use Doctrine\DBAL\Schema\Schema;
+use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use Psr\Http\Message\UriInterface;
 use Terminal42\Escargot\BaseUriCollection;
@@ -237,8 +237,32 @@ final class DoctrineQueue implements QueueInterface
 
     public function createSchema(): void
     {
-        $schema = new Schema();
-        $table = $schema->createTable($this->tableName);
+        $table = $this->getTableSchema();
+
+        $schemaManager = method_exists($this->connection, 'createSchemaManager') ?
+            $this->connection->createSchemaManager() :
+            $this->connection->getSchemaManager()
+        ;
+
+        if (!$schemaManager->tablesExist($this->tableName)) {
+            $queries = $this->connection->getDatabasePlatform()->getCreateTableSQL($table);
+        } else {
+            $comparator = method_exists($schemaManager, 'createComparator') ?
+                $schemaManager->createComparator() :
+                new Comparator()
+            ;
+            $tableDiff = $comparator->diffTable($schemaManager->listTableDetails($this->tableName), $table);
+            $queries = $this->connection->getDatabasePlatform()->getAlterTableSQL($tableDiff);
+        }
+
+        foreach ($queries as $query) {
+            $this->connection->executeQuery($query);
+        }
+    }
+
+    public function getTableSchema(): Table
+    {
+        $table = new Table($this->tableName);
 
         $table->addColumn('id', Types::BIGINT)
             ->setAutoincrement(true)
@@ -273,25 +297,7 @@ final class DoctrineQueue implements QueueInterface
         $table->addIndex(['uri']);
         $table->addIndex(['processed']);
 
-        $schemaManager = method_exists($this->connection, 'createSchemaManager') ?
-            $this->connection->createSchemaManager() :
-            $this->connection->getSchemaManager()
-        ;
-
-        if (!$schemaManager->tablesExist($this->tableName)) {
-            $queries = $this->connection->getDatabasePlatform()->getCreateTableSQL($table);
-        } else {
-            $comparator = method_exists($schemaManager, 'createComparator') ?
-                $schemaManager->createComparator() :
-                new Comparator()
-            ;
-            $tableDiff = $comparator->diffTable($schemaManager->listTableDetails($this->tableName), $table);
-            $queries = $this->connection->getDatabasePlatform()->getAlterTableSQL($tableDiff);
-        }
-
-        foreach ($queries as $query) {
-            $this->connection->executeQuery($query);
-        }
+        return $table;
     }
 
     /**
