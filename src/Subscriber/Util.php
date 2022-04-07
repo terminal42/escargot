@@ -50,11 +50,6 @@ class Util
             return false;
         }
 
-        // Skip rel="nofollow" links
-        if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_REL_NOFOLLOW)) {
-            return false;
-        }
-
         return true;
     }
 }

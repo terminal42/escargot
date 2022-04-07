@@ -48,12 +48,6 @@ class UtilTest extends TestCase
             false,
         ];
 
-        yield 'Current URI has a rel="nofollow" attribute' => [
-            (new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')))->addTag(HtmlCrawlerSubscriber::TAG_REL_NOFOLLOW),
-            $this->createEscargot(),
-            false,
-        ];
-
         yield 'Current URI can be followed' => [
             new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')),
             $this->createEscargot(),
