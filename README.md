@@ -1,4 +1,12 @@
-# Escargot
+# Escargot - a Symfony HttpClient based Crawler framework
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo/logo_neg.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/logo/logo.svg">
+  <img alt="The Escargot logo which consists of an illustration of a snail shell" src="assets/logo/logo.svg" width="300">
+</picture>
+
+---
 
 A library that provides everything you need to crawl anything based on HTTP and process the responses in whatever
 way you prefer based on Symfony components.
@@ -456,13 +464,15 @@ There are different configurations you can apply to the `Escargot` instance:
 
 * [Contao, an open source CMS](https://contao.org) uses `Escargot` as of
   version 4.9, and it greatly improved the way search indexing works.
-   
+
+### Attributions
+
+* The logo was designed by the awesome @fkaminski, thank you!
+
 ### Roadmap / Ideas
 
 * What about having `Escargot` interpret JavaScript before starting to crawl the content? Should be possible
   by having an `HttpClientInterface` implementation that bridges to `symfony/panther` or `facebook/webdriver`
   directly. PR's welcome!
-
-* Maybe one day, some talented illustrator finds this library and enhances it with a nice logo? :-)
 
 [Symfony_HTTPClient]: https://symfony.com/doc/current/components/http_client.html
