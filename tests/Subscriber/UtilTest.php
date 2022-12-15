@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
  * Escargot
  *
- * @copyright  Copyright (c) 2019 - 2021, terminal42 gmbh
+ * @copyright  Copyright (c) 2019 - 2022, terminal42 gmbh
  * @author     terminal42 gmbh <info@terminal42.ch>
  * @license    MIT
  */
@@ -18,7 +18,6 @@ use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
 use Terminal42\Escargot\Queue\InMemoryQueue;
-use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 use Terminal42\Escargot\Subscriber\Util;
 

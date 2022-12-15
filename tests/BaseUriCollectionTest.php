@@ -5,7 +5,7 @@ declare(strict_types=1);
 /*
  * Escargot
  *
- * @copyright  Copyright (c) 2019 - 2021, terminal42 gmbh
+ * @copyright  Copyright (c) 2019 - 2022, terminal42 gmbh
  * @author     terminal42 gmbh <info@terminal42.ch>
  * @license    MIT
  */
