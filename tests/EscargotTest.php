@@ -284,6 +284,17 @@ class EscargotTest extends TestCase
                     }
                 }
 
+                // Skip the links that are disallowed by robots.txt
+                if ($crawlUri->hasTag(RobotsSubscriber::TAG_DISALLOWED_ROBOTS_TXT)) {
+                    $this->logWithCrawlUri(
+                        $crawlUri,
+                        LogLevel::DEBUG,
+                        'Do not request because it was disallowed by the robots.txt.'
+                    );
+
+                    return SubscriberInterface::DECISION_NEGATIVE;
+                }
+
                 // Skip rel="nofollow" links
                 if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_REL_NOFOLLOW)) {
                     $this->logWithCrawlUri(

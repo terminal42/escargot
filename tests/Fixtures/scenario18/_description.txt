@@ -1,0 +1,1 @@
+Test robots.txt with query parameters are considered correctly

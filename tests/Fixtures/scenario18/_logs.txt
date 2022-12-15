@@ -1,0 +1,3 @@
+[Terminal42\Escargot\Subscriber\RobotsSubscriber] [URI: https://www.terminal42.ch/foobar?with-a-query=true (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: disallowed-robots-txt)] Added the "disallowed-robots-txt" tag because of the robots.txt content.
+[class@anonymous:EscargotTest] [URI: https://www.terminal42.ch/foobar?with-a-query=true (Level: 1, Processed: yes, Found on: https://www.terminal42.ch/, Tags: disallowed-robots-txt)] Do not request because it was disallowed by the robots.txt.
+[Terminal42\Escargot\Escargot] Finished crawling! Sent 1 request(s).

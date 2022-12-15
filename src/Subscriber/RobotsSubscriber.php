@@ -152,7 +152,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         // Check if an URI is allowed by the robots.txt
         $inspector = new Inspector($robotsTxt, $this->escargot->getUserAgent());
 
-        if (!$inspector->isAllowed($crawlUri->getUri()->getPath())) {
+        if (!$inspector->isAllowed($this->getPathAndQuery($crawlUri->getUri()))) {
             $crawlUri->addTag(self::TAG_DISALLOWED_ROBOTS_TXT);
 
             $this->logWithCrawlUri(
@@ -272,5 +272,16 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
             $this->escargot->addUriToQueue($uri, $sitemapUri);
         }
+    }
+
+    private function getPathAndQuery(UriInterface $uri): string
+    {
+        $path = $uri->getPath();
+
+        if ($query = $uri->getQuery()) {
+            $path .= '?'.$query;
+        }
+
+        return $path;
     }
 }
