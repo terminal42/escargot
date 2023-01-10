@@ -1,0 +1,10 @@
+https://www.terminal42.ch/sitemap.xml
+
+HTTP/2.0 200 OK
+content-type: application/xml
+
+<sitemapindex xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+    <sitemap>
+        <loc>https://www.terminal42.ch/sitemap_default.xml</loc>
+    </sitemap>
+</sitemapindex>

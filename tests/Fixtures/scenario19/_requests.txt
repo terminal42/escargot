@@ -1,0 +1,4 @@
+Successful request! URI: https://www.terminal42.ch/ (Level: 0, Processed: yes, Found on: root, Tags: none).
+Successful request! URI: https://www.terminal42.ch/sitemap.xml (Level: 2, Processed: yes, Found on: https://www.terminal42.ch/robots.txt, Tags: is-sitemap).
+Successful request! URI: https://www.terminal42.ch/sitemap_default.xml (Level: 3, Processed: yes, Found on: https://www.terminal42.ch/sitemap.xml, Tags: is-sitemap).
+Successful request! URI: https://www.terminal42.ch/foobar (Level: 4, Processed: yes, Found on: https://www.terminal42.ch/sitemap_default.xml, Tags: none).

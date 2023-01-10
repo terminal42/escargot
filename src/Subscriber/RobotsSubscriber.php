@@ -253,6 +253,8 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             restore_error_handler();
         }
 
+        $sitemapIndex = ('sitemapindex' === $urls->getName());
+
         foreach ($urls as $url) {
             // Add it to the queue if not present already
             try {
@@ -270,7 +272,10 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
                 continue;
             }
 
-            $this->escargot->addUriToQueue($uri, $sitemapUri);
+            $crawlUrl = $this->escargot->addUriToQueue($uri, $sitemapUri);
+            if ($sitemapIndex) {
+                $crawlUrl->addTag(self::TAG_IS_SITEMAP);
+            }
         }
     }
 
