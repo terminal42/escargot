@@ -53,7 +53,7 @@ jobs:
               run: vendor/bin/simple-phpunit
 
     prefer-lowest-tests:
-        name: Prefer Lowest
+        name: Prefer lowest PHP ${{ matrix.php }}
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false
