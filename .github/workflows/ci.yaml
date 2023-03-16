@@ -31,18 +31,16 @@ jobs:
     tests:
         name: PHP ${{ matrix.php }}
         runs-on: ubuntu-latest
-        if: github.event_name != 'push'
         strategy:
             fail-fast: false
             matrix:
-                php: [7.2, 7.3, 7.4, 8.0, 8.1]
+                php: [7.4, 8.0, 8.1, 8.2]
         steps:
             - name: Setup PHP
               uses: shivammathur/setup-php@v2
               with:
                   php-version: ${{ matrix.php }}
                   extensions: json
-                  tools: prestissimo
                   coverage: none
 
             - name: Checkout
@@ -57,18 +55,16 @@ jobs:
     prefer-lowest-tests:
         name: Prefer Lowest
         runs-on: ubuntu-latest
-        if: github.event_name != 'push'
         strategy:
             fail-fast: false
             matrix:
-                php: [7.2, 7.3, 7.4, 8.0]
+                php: [7.4, 8.0, 8.1, 8.2]
         steps:
             - name: Setup PHP
               uses: shivammathur/setup-php@v2
               with:
                   php-version: ${{ matrix.php }}
                   extensions: json
-                  tools: prestissimo
                   coverage: none
 
             - name: Checkout
