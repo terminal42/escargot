@@ -29,7 +29,8 @@
     "require-dev": {
         "doctrine/dbal": "^2.13 || ^3.0",
         "symfony/finder": "^4.4 || ^5.0 || ^6.0",
-        "symfony/phpunit-bridge": "^5.1.8 || ^6.0"
+        "symfony/phpunit-bridge": "^5.1.8 || ^6.0",
+        "colinodell/psr-testlogger": "^1.1"
     },
     "config": {
         "preferred-install": {
