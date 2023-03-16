@@ -16,7 +16,7 @@
         "source": "https://github.com/terminal42/escargot"
     },
     "require": {
-        "php": "^7.2 || ^8.0",
+        "php": "^7.4 || ^8.0",
         "ext-simplexml": "*",
         "nyholm/psr7": "^1.1",
         "psr/http-message": "^1.0",
@@ -27,6 +27,7 @@
         "webignition/robots-txt-file": "^3.0"
     },
     "require-dev": {
+        "beste/psr-testlogger": "^1.0",
         "doctrine/dbal": "^2.13 || ^3.0",
         "symfony/finder": "^4.4 || ^5.0 || ^6.0",
         "symfony/phpunit-bridge": "^5.1.8 || ^6.0",
