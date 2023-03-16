@@ -27,7 +27,6 @@
         "webignition/robots-txt-file": "^3.0"
     },
     "require-dev": {
-        "beste/psr-testlogger": "^1.0",
         "doctrine/dbal": "^2.13 || ^3.0",
         "symfony/finder": "^4.4 || ^5.0 || ^6.0",
         "symfony/phpunit-bridge": "^5.1.8 || ^6.0",
