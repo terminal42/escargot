@@ -12,13 +12,13 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Tests;
 
-use ColinODell\PsrTestLogger\TestLogger;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Psr\Log\Test\TestLogger;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
