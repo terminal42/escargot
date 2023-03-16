@@ -31,7 +31,6 @@ jobs:
     tests:
         name: PHP ${{ matrix.php }}
         runs-on: ubuntu-latest
-        if: github.event_name != 'push'
         strategy:
             fail-fast: false
             matrix:
@@ -56,7 +55,6 @@ jobs:
     prefer-lowest-tests:
         name: Prefer Lowest
         runs-on: ubuntu-latest
-        if: github.event_name != 'push'
         strategy:
             fail-fast: false
             matrix:
