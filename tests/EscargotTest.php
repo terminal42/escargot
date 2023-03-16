@@ -12,13 +12,14 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Tests;
 
+use Beste\Psr\Log\Record;
+use Beste\Psr\Log\TestLogger;
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
-use Psr\Log\Test\TestLogger;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
@@ -63,7 +64,7 @@ class EscargotTest extends TestCase
         $baseUris = new BaseUriCollection();
         $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
-        $logger = new TestLogger();
+        $logger = TestLogger::create();
 
         $escargot = Escargot::create($baseUris, $queue);
 
@@ -203,7 +204,7 @@ class EscargotTest extends TestCase
         }
 
         // Register a test logger which then allows us to very easily assert what's happening based on the logs
-        $logger = new TestLogger();
+        $logger = TestLogger::create();
         $escargot = $escargot->withLogger($logger);
 
         // Add subscribers
@@ -216,19 +217,19 @@ class EscargotTest extends TestCase
 
         $escargot->crawl();
 
-        $filteredLogs = array_map(function (array $record) {
-            $message = $record['message'];
+        $filteredLogs = array_map(function (Record $record) {
+            $message = $record->message;
 
-            if (isset($record['context']['crawlUri'])) {
-                $message = sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
+            if (isset($record->context->data['crawlUri'])) {
+                $message = sprintf('[%s] %s', (string) $record->context->data['crawlUri'], $message);
             }
 
-            if (isset($record['context']['source'])) {
-                $message = sprintf('[%s] %s', $record['context']['source'], $message);
+            if (isset($record->context->data['source'])) {
+                $message = sprintf('[%s] %s', $record->context->data['source'], $message);
             }
 
             return $message;
-        }, $logger->records);
+        }, $logger->records->all());
 
         $this->assertSame($expectedLogs, $filteredLogs, $message);
 
