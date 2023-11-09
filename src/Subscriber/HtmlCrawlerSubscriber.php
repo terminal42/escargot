@@ -31,6 +31,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
     use SubscriberLoggerTrait;
 
     public const TAG_REL_NOFOLLOW = 'rel-nofollow';
+
     public const TAG_NO_TEXT_HTML_TYPE = 'no-txt-html-type';
 
     public function shouldRequest(CrawlUri $crawlUri): string
@@ -62,6 +63,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
         // Links
         $linkCrawler = $crawler->filterXPath('descendant-or-self::a');
+
         foreach ($linkCrawler->links() as $link) {
             $this->addNewUriToQueueFromNode($crawlUri, $link->getUri(), $link->getNode());
         }
@@ -88,8 +90,8 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
                 LogLevel::DEBUG,
                 sprintf(
                     'Could not add "%s" to the queue because the link is invalid.',
-                    $uri
-                )
+                    $uri,
+                ),
             );
 
             return;
@@ -104,8 +106,8 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
                 LogLevel::DEBUG,
                 sprintf(
                     'Did not add "%s" to the queue because it was marked as "data-escargot-ignore".',
-                    $uri
-                )
+                    $uri,
+                ),
             );
 
             return;
@@ -117,14 +119,14 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
         // Add all data attributes as tags for e.g. other subscribers
         if ($node->hasAttributes()) {
             foreach ($node->attributes as $attribute) {
-                if (0 === strpos($attribute->name, 'data-')) {
+                if (str_starts_with($attribute->name, 'data-')) {
                     $newCrawlUri->addTag(substr($attribute->name, 5));
                 }
             }
         }
 
         // Add a tag to the new CrawlUri instance if it was marked with rel="nofollow"
-        if ($node->hasAttribute('rel') && false !== strpos($node->getAttribute('rel'), 'nofollow')) {
+        if ($node->hasAttribute('rel') && str_contains($node->getAttribute('rel'), 'nofollow')) {
             $newCrawlUri->addTag(self::TAG_REL_NOFOLLOW);
         }
 

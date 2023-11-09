@@ -19,12 +19,12 @@ use Terminal42\Escargot\CrawlUri;
 final class InMemoryQueue implements QueueInterface
 {
     /**
-     * @var array<string,array<UriInterface>>
+     * @var array<string, array<UriInterface>>
      */
     private $baseUris = [];
 
     /**
-     * @var array<string,array<string,CrawlUri>>
+     * @var array<string, array<string, CrawlUri>>
      */
     private $queue = [];
 
@@ -57,7 +57,7 @@ final class InMemoryQueue implements QueueInterface
         return $this->baseUris[$jobId];
     }
 
-    public function get(string $jobId, UriInterface $uri): ?CrawlUri
+    public function get(string $jobId, UriInterface $uri): CrawlUri|null
     {
         return $this->queue[$jobId][(string) $uri] ?? null;
     }
@@ -71,13 +71,14 @@ final class InMemoryQueue implements QueueInterface
         $this->queue[$jobId][(string) $crawlUri->getUri()] = $crawlUri;
     }
 
-    public function getNext(string $jobId, int $skip = 0): ?CrawlUri
+    public function getNext(string $jobId, int $skip = 0): CrawlUri|null
     {
         if (!isset($this->queue[$jobId])) {
             return null;
         }
 
         $i = 0;
+
         foreach ($this->queue[$jobId] as $crawlUri) {
             if ($crawlUri->isProcessed()) {
                 continue;

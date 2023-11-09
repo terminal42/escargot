@@ -13,7 +13,6 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Queue;
 
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Schema\Comparator;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use Psr\Http\Message\UriInterface;
@@ -23,31 +22,16 @@ use Terminal42\Escargot\HttpUriFactory;
 
 final class DoctrineQueue implements QueueInterface
 {
-    /**
-     * @var Connection
-     */
-    private $connection;
-
-    /**
-     * @var \Closure
-     */
-    private $jobIdGenerator;
-
-    /**
-     * @var string
-     */
-    private $tableName;
-
-    public function __construct(Connection $connection, \Closure $jobIdGenerator, ?string $tableName = null)
-    {
-        $this->connection = $connection;
-        $this->jobIdGenerator = $jobIdGenerator;
-        $this->tableName = $tableName ?? 'escargot';
+    public function __construct(
+        private Connection $connection,
+        private \Closure $jobIdGenerator,
+        private string $tableName = 'escargot',
+    ) {
     }
 
     public function createJobId(BaseUriCollection $baseUris): string
     {
-        $jobId = $this->jobIdGenerator->__invoke();
+        $jobId = ($this->jobIdGenerator)();
 
         foreach ($baseUris as $baseUri) {
             $this->add($jobId, new CrawlUri($baseUri, 0));
@@ -63,7 +47,9 @@ final class DoctrineQueue implements QueueInterface
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->setParameter('jobId', $jobId, Types::STRING)
-            ->setMaxResults(1);
+            ->setMaxResults(1)
+        ;
+
         $stmt = method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
 
         return (bool) $stmt->fetchOne();
@@ -74,7 +60,8 @@ final class DoctrineQueue implements QueueInterface
         $queryBuilder = $this->connection->createQueryBuilder()
             ->delete($this->tableName)
             ->where('job_id = :jobId')
-            ->setParameter('jobId', $jobId, Types::STRING);
+            ->setParameter('jobId', $jobId, Types::STRING)
+        ;
 
         method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
     }
@@ -89,7 +76,8 @@ final class DoctrineQueue implements QueueInterface
             ->where('job_id = :jobId')
             ->andWhere('level = :level')
             ->setParameter('jobId', $jobId, Types::STRING)
-            ->setParameter('level', 0, Types::INTEGER);
+            ->setParameter('level', 0, Types::INTEGER)
+        ;
 
         $stmt = method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
 
@@ -102,7 +90,7 @@ final class DoctrineQueue implements QueueInterface
         return $baseUris;
     }
 
-    public function get(string $jobId, UriInterface $uri): ?CrawlUri
+    public function get(string $jobId, UriInterface $uri): CrawlUri|null
     {
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select('uri, level, processed, found_on, tags')
@@ -111,7 +99,8 @@ final class DoctrineQueue implements QueueInterface
             ->andWhere('uri_hash = :uri_hash')
             ->setParameter('jobId', $jobId, Types::STRING)
             ->setParameter('uri_hash', $this->getUriHash($uri), Types::STRING)
-            ->setMaxResults(1);
+            ->setMaxResults(1)
+        ;
 
         $stmt = method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
 
@@ -142,26 +131,29 @@ final class DoctrineQueue implements QueueInterface
                 ])
                 ->setParameter('uri', (string) $crawlUri->getUri(), Types::STRING)
                 ->setParameter('level', $crawlUri->getLevel(), Types::INTEGER)
-                ->setParameter('foundOn', $crawlUri->getFoundOn(), Types::STRING);
+                ->setParameter('foundOn', $crawlUri->getFoundOn(), Types::STRING)
+            ;
         } else {
             $queryBuilder
                 ->update($this->tableName)
                 ->set('processed', ':processed')
                 ->set('tags', ':tags')
                 ->where('job_id = :jobId')
-                ->andWhere('uri_hash = :uri_hash');
+                ->andWhere('uri_hash = :uri_hash')
+            ;
         }
 
         $queryBuilder
             ->setParameter('jobId', $jobId, Types::STRING)
             ->setParameter('uri_hash', $this->getUriHash($crawlUri->getUri()), Types::STRING)
             ->setParameter('processed', $crawlUri->isProcessed(), Types::BOOLEAN)
-            ->setParameter('tags', implode(',', $crawlUri->getTags()), Types::TEXT);
+            ->setParameter('tags', implode(',', $crawlUri->getTags()), Types::TEXT)
+        ;
 
         method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
     }
 
-    public function getNext(string $jobId, int $skip = 0): ?CrawlUri
+    public function getNext(string $jobId, int $skip = 0): CrawlUri|null
     {
         $queryBuilder = $this->connection->createQueryBuilder()
             ->select('uri, level, processed, found_on, tags')
@@ -171,7 +163,8 @@ final class DoctrineQueue implements QueueInterface
             ->orderBy('id', 'ASC')
             ->setParameter('jobId', $jobId, Types::STRING)
             ->setParameter('processed', false, Types::BOOLEAN)
-            ->setMaxResults(1);
+            ->setMaxResults(1)
+        ;
 
         if ($skip > 0) {
             $queryBuilder->setFirstResult($skip);
@@ -194,7 +187,8 @@ final class DoctrineQueue implements QueueInterface
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->setParameter('jobId', $jobId, Types::STRING)
-            ->setMaxResults(1);
+            ->setMaxResults(1)
+        ;
 
         $stmt = method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
 
@@ -210,7 +204,8 @@ final class DoctrineQueue implements QueueInterface
             ->andWhere('processed = :processed')
             ->setParameter('jobId', $jobId, Types::STRING)
             ->setParameter('processed', false, Types::BOOLEAN)
-            ->setMaxResults(1);
+            ->setMaxResults(1)
+        ;
 
         $stmt = method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
 
@@ -224,7 +219,8 @@ final class DoctrineQueue implements QueueInterface
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->orderBy('id', 'ASC')
-            ->setParameter('jobId', $jobId, Types::STRING);
+            ->setParameter('jobId', $jobId, Types::STRING)
+        ;
 
         $stmt = method_exists($queryBuilder, 'executeQuery') ? $queryBuilder->executeQuery() : $queryBuilder->execute();
 
@@ -261,30 +257,38 @@ final class DoctrineQueue implements QueueInterface
 
         $table->addColumn('id', Types::BIGINT)
             ->setAutoincrement(true)
-            ->setNotnull(true);
+            ->setNotnull(true)
+        ;
 
         $table->addColumn('job_id', Types::GUID)
-            ->setNotnull(true);
+            ->setNotnull(true)
+        ;
 
         $table->addColumn('uri_hash', Types::STRING)
             ->setLength(40)
             ->setFixed(true)
-            ->setNotnull(true);
+            ->setNotnull(true)
+        ;
 
         $table->addColumn('uri', Types::TEXT)
-            ->setNotnull(true);
+            ->setNotnull(true)
+        ;
 
         $table->addColumn('found_on', Types::TEXT)
-            ->setNotnull(false);
+            ->setNotnull(false)
+        ;
 
         $table->addColumn('level', Types::INTEGER)
-            ->setNotnull(true);
+            ->setNotnull(true)
+        ;
 
         $table->addColumn('processed', Types::BOOLEAN)
-            ->setNotnull(true);
+            ->setNotnull(true)
+        ;
 
         $table->addColumn('tags', Types::TEXT)
-            ->setNotnull(false);
+            ->setNotnull(false)
+        ;
 
         $table->setPrimaryKey(['id']);
         $table->addIndex(['job_id']);

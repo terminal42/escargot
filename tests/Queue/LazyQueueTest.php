@@ -34,12 +34,10 @@ class LazyQueueTest extends AbstractQueueTest
         $configuration->setSchemaManagerFactory(new DefaultSchemaManagerFactory());
         $connection = DriverManager::getConnection(
             (new DsnParser(['sqlite' => 'pdo_sqlite']))->parse('sqlite://:memory:'),
-            $configuration
+            $configuration,
         );
 
-        $this->queue = new DoctrineQueue($connection, function () {
-            return 'foobar';
-        });
+        $this->queue = new DoctrineQueue($connection, static fn () => 'foobar');
 
         $this->queue->createSchema();
     }

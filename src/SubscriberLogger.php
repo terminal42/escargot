@@ -30,7 +30,7 @@ class SubscriberLogger extends AbstractLogger
     public function __construct(LoggerInterface $decorated, string $subscriberClass)
     {
         // Anonymous class names contain null bytes so let's standardize them a little
-        if (false !== strpos($subscriberClass, '@anonymous')) {
+        if (str_contains($subscriberClass, '@anonymous')) {
             $subscriberClass = 'class@anonymous:'.basename($subscriberClass);
             $subscriberClass = preg_replace('/\.php(.+)$/', '', $subscriberClass);
         }
@@ -44,9 +44,6 @@ class SubscriberLogger extends AbstractLogger
         $this->log($level, $message, ['crawlUri' => $crawlUri]);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function log($level, $message, array $context = []): void
     {
         $context = array_merge($context, ['source' => $this->subscriberClass]);

@@ -25,6 +25,7 @@
         "symfony/dom-crawler": "^5.4 || ^6.0",
         "symfony/event-dispatcher": "^5.4 || ^6.0",
         "symfony/http-client": "^5.4 || ^6.0",
+        "terminal42/contao-build-tools": "@dev",
         "webignition/robots-txt-file": "^3.0"
     },
     "require-dev": {
@@ -37,7 +38,10 @@
         "preferred-install": {
             "*": "dist"
         },
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "terminal42/contao-build-tools": true
+        }
     },
     "autoload": {
         "psr-4": {

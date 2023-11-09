@@ -49,7 +49,7 @@ interface QueueInterface
      * Returns a CrawlUri for a given UriInterface if already
      * added to the queue.
      */
-    public function get(string $jobId, UriInterface $baseUri): ?CrawlUri;
+    public function get(string $jobId, UriInterface $baseUri): CrawlUri|null;
 
     /**
      * Adds a new CrawlUri instance to the queue.
@@ -76,7 +76,7 @@ interface QueueInterface
      * useful for the LazyQueue implementation so it can skip n entries
      * it's already processed and stored in the primary queue.
      */
-    public function getNext(string $jobId, int $skip = 0): ?CrawlUri;
+    public function getNext(string $jobId, int $skip = 0): CrawlUri|null;
 
     /**
      * Returns the total of all URIs.
@@ -91,7 +91,7 @@ interface QueueInterface
     /**
      * Returns all CrawlUri instances in the queue.
      *
-     * @return \Generator & iterable<int, CrawlUri>
+     * @return \Generator&iterable<int, CrawlUri>
      */
     public function getAll(string $jobId): \Generator;
 }

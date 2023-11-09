@@ -39,14 +39,14 @@ final class CrawlUri
     /**
      * @var UriInterface|null
      */
-    private $foundOn = null;
+    private $foundOn;
 
     /**
      * @var array
      */
     private $tags = [];
 
-    public function __construct(UriInterface $uri, int $level, bool $processed = false, ?UriInterface $foundOn = null)
+    public function __construct(UriInterface $uri, int $level, bool $processed = false, UriInterface|null $foundOn = null)
     {
         $this->uri = self::normalizeUri($uri);
         $this->level = $level;
@@ -64,7 +64,7 @@ final class CrawlUri
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',
             (string) ($this->getFoundOn() ?: 'root'),
-            $this->getTags() ? implode(', ', $this->getTags()) : 'none'
+            $this->getTags() ? implode(', ', $this->getTags()) : 'none',
         );
     }
 
@@ -96,7 +96,7 @@ final class CrawlUri
         return $this->wasMarkedProcessed;
     }
 
-    public function getFoundOn(): ?UriInterface
+    public function getFoundOn(): UriInterface|null
     {
         return $this->foundOn;
     }
@@ -108,7 +108,7 @@ final class CrawlUri
 
     public function addTag(string $tag): self
     {
-        if (false !== strpos($tag, ',')) {
+        if (str_contains($tag, ',')) {
             throw new \InvalidArgumentException('Cannot use commas in tags.');
         }
 
@@ -139,8 +139,6 @@ final class CrawlUri
             $uri = $uri->withPath('/');
         }
 
-        $uri = $uri->withFragment('');
-
-        return $uri;
+        return $uri->withFragment('');
     }
 }

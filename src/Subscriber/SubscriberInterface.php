@@ -19,7 +19,9 @@ use Terminal42\Escargot\CrawlUri;
 interface SubscriberInterface
 {
     public const DECISION_POSITIVE = 'positive';
+
     public const DECISION_ABSTAIN = 'abstain';
+
     public const DECISION_NEGATIVE = 'negative';
 
     /**

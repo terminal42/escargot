@@ -29,7 +29,7 @@ final class LazyQueue implements QueueInterface
     private $secondaryQueue;
 
     /**
-     * @var array<string,string>
+     * @var array<string, string>
      */
     private $jobIdMapper = [];
 
@@ -69,7 +69,7 @@ final class LazyQueue implements QueueInterface
         return $this->primaryQueue->getBaseUris($this->getJobIdFromSecondaryJobId($jobId));
     }
 
-    public function get(string $jobId, UriInterface $uri): ?CrawlUri
+    public function get(string $jobId, UriInterface $uri): CrawlUri|null
     {
         // If we have it in the primary queue, early return
         $crawlUri = $this->primaryQueue->get($this->getJobIdFromSecondaryJobId($jobId), $uri);
@@ -100,7 +100,7 @@ final class LazyQueue implements QueueInterface
         }
     }
 
-    public function getNext(string $jobId, int $skip = 0): ?CrawlUri
+    public function getNext(string $jobId, int $skip = 0): CrawlUri|null
     {
         // If we have it in the primary queue, early return
         $next = $this->primaryQueue->getNext($this->getJobIdFromSecondaryJobId($jobId), $skip);

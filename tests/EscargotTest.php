@@ -72,14 +72,19 @@ class EscargotTest extends TestCase
         $subscriber = $this->createMock(CompleteSubscriber::class);
         $subscriber
             ->expects($this->exactly(5))
-            ->method('setEscargot');
+            ->method('setEscargot')
+        ;
+
         $subscriber
             ->expects($this->once())
             ->method('setLogger')
-            ->with($this->callback(function (LoggerInterface $logger) {
-                // Must be decorated
-                return $logger instanceof SubscriberLogger;
-            }));
+            ->with($this->callback(
+                static function (LoggerInterface $logger) {
+                    // Must be decorated
+                    return $logger instanceof SubscriberLogger;
+                },
+            ))
+        ;
 
         $escargot->addSubscriber($subscriber);
 
@@ -184,28 +189,30 @@ class EscargotTest extends TestCase
 
     public function testMaxDuration(): void
     {
-        $mockResponse = <<<HTML
-HTTP/2.0 200 OK
-content-type: text/html; charset=UTF-8
+        $mockResponse = <<<'HTML'
+            HTTP/2.0 200 OK
+            content-type: text/html; charset=UTF-8
 
-<html>
-    <head>
-    </head>
-    <body>
-        <a href="https://www.terminal42.ch/%s">Link</a>
-    </body>
-</html>
-HTML;
+            <html>
+                <head>
+                </head>
+                <body>
+                    <a href="https://www.terminal42.ch/%s">Link</a>
+                </body>
+            </html>
+            HTML;
 
         $baseUris = new BaseUriCollection();
         $baseUris->add(new Uri('https://www.terminal42.ch'));
         $queue = new InMemoryQueue();
         $clock = new MockClock();
-        $client = new MockHttpClient(function ($method, $url) use ($clock, $mockResponse) {
-            $clock->sleep(1); // Mock the request that takes a second to complete
+        $client = new MockHttpClient(
+            static function ($method, $url) use ($clock, $mockResponse) {
+                $clock->sleep(1); // Mock the request that takes a second to complete
 
-            return MockResponseFactory::createFromString(sprintf($mockResponse, uniqid()));
-        });
+                return MockResponseFactory::createFromString(sprintf($mockResponse, uniqid()));
+            },
+        );
         $logger = new TestLogger();
 
         $escargot = Escargot::create($baseUris, $queue)
@@ -220,10 +227,13 @@ HTML;
 
         $escargot->crawl();
 
-        $this->assertSame([
-            '[Terminal42\Escargot\Escargot] Configured max duration reached!',
-            '[Terminal42\Escargot\Escargot] Finished crawling! Sent 5 request(s).',
-        ], $this->cleanLogs($logger));
+        $this->assertSame(
+            [
+                '[Terminal42\Escargot\Escargot] Configured max duration reached!',
+                '[Terminal42\Escargot\Escargot] Finished crawling! Sent 5 request(s).',
+            ],
+            $this->cleanLogs($logger),
+        );
     }
 
     /**
@@ -266,28 +276,9 @@ HTML;
 
         $this->assertSame($expectedLogs, $filteredLogs, $message);
 
-        $filteredRequests = array_map(function (CrawlUri $crawlUri) {
-            return sprintf('Successful request! %s.', (string) $crawlUri);
-        }, $indexerSubscriber->getUris());
+        $filteredRequests = array_map(static fn (CrawlUri $crawlUri) => sprintf('Successful request! %s.', (string) $crawlUri), $indexerSubscriber->getUris());
 
         $this->assertSame($expectedRequests, $filteredRequests, $message);
-    }
-
-    private function cleanLogs(TestLogger $testLogger): array
-    {
-         return array_map(function (array $record) {
-            $message = $record['message'];
-
-            if (isset($record['context']['crawlUri'])) {
-                $message = sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
-            }
-
-            if (isset($record['context']['source'])) {
-                $message = sprintf('[%s] %s', $record['context']['source'], $message);
-            }
-
-            return $message;
-        }, $testLogger->records);
     }
 
     public function crawlProvider(): \Generator
@@ -304,6 +295,26 @@ HTML;
 
             yield $scenario->getName() => $scenario->getArgumentsForCrawlProvider();
         }
+    }
+
+    private function cleanLogs(TestLogger $testLogger): array
+    {
+        return array_map(
+            static function (array $record) {
+                $message = $record['message'];
+
+                if (isset($record['context']['crawlUri'])) {
+                    $message = sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
+                }
+
+                if (isset($record['context']['source'])) {
+                    $message = sprintf('[%s] %s', $record['context']['source'], $message);
+                }
+
+                return $message;
+            },
+            $testLogger->records,
+        );
     }
 
     private function getSearchIndexSubscriber(): SubscriberInterface
@@ -328,7 +339,7 @@ HTML;
                         $this->logWithCrawlUri(
                             $crawlUri,
                             LogLevel::DEBUG,
-                            'Do not request because when the crawl URI was found, the robots information disallowed following this URI.'
+                            'Do not request because when the crawl URI was found, the robots information disallowed following this URI.',
                         );
 
                         return SubscriberInterface::DECISION_NEGATIVE;
@@ -340,7 +351,7 @@ HTML;
                     $this->logWithCrawlUri(
                         $crawlUri,
                         LogLevel::DEBUG,
-                        'Do not request because it was disallowed by the robots.txt.'
+                        'Do not request because it was disallowed by the robots.txt.',
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;
@@ -351,7 +362,7 @@ HTML;
                     $this->logWithCrawlUri(
                         $crawlUri,
                         LogLevel::DEBUG,
-                        'Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".'
+                        'Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".',
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;
@@ -362,7 +373,7 @@ HTML;
                     $this->logWithCrawlUri(
                         $crawlUri,
                         LogLevel::DEBUG,
-                        'Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".'
+                        'Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".',
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;

@@ -36,7 +36,7 @@ class UtilTest extends TestCase
         yield 'Found on an URI that should not be followed according to the x-robots-tag header or <meta name="robots"> information' => [
             new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')),
             $this->createEscargotWithFoundOnUri(
-                (new CrawlUri(new Uri('https://www.terminal42.ch'), 0, true))->addTag(RobotsSubscriber::TAG_NOFOLLOW)
+                (new CrawlUri(new Uri('https://www.terminal42.ch'), 0, true))->addTag(RobotsSubscriber::TAG_NOFOLLOW),
             ),
             false,
         ];

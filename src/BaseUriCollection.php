@@ -80,17 +80,11 @@ final class BaseUriCollection implements \IteratorAggregate, \Countable
         return array_values($this->baseUris);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function getIterator(): \Traversable
     {
         return new \ArrayIterator($this->all());
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function count(): int
     {
         return \count($this->all());
