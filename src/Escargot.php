@@ -12,11 +12,12 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot;
 
-use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Symfony\Component\Clock\ClockInterface;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -40,6 +41,11 @@ final class Escargot
      * @var QueueInterface
      */
     private $queue;
+
+    /**
+     * @var ClockInterface
+     */
+    private $clock;
 
     /**
      * @var string
@@ -80,6 +86,16 @@ final class Escargot
      * @var int
      */
     private $maxRequests = 0;
+
+    /**
+     * Maximum number of duration in seconds
+     * Escargot is going to work on requests.
+     *
+     * 0 means no limit.
+     *
+     * @var int
+     */
+    private $maxDurationInSeconds = 0;
 
     /**
      * Request delay in microseconds.
@@ -125,12 +141,15 @@ final class Escargot
      */
     private $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
 
+    private \DateTimeImmutable $startTime;
+
     private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris)
     {
         $this->queue = $queue;
         $this->jobId = $jobId;
         $this->baseUris = $baseUris;
 
+        $this->clock = new NativeClock();
         $this->userAgent = self::DEFAULT_USER_AGENT;
     }
 
@@ -183,6 +202,22 @@ final class Escargot
     {
         $new = clone $this;
         $new->maxRequests = $maxRequests;
+
+        return $new;
+    }
+
+    public function withMaxDurationInSeconds(int $maxDurationInSeconds): self
+    {
+        $new = clone $this;
+        $new->maxDurationInSeconds = $maxDurationInSeconds;
+
+        return $new;
+    }
+
+    public function withClock(ClockInterface $clock): self
+    {
+        $new = clone $this;
+        $new->clock = $clock;
 
         return $new;
     }
@@ -320,6 +355,8 @@ final class Escargot
 
     public function crawl(): void
     {
+        $this->startTime = $this->clock->now();
+
         while (true) {
             $responses = $this->prepareResponses();
 
@@ -529,8 +566,20 @@ final class Escargot
     {
         $responses = [];
 
+        $hasMaxRequestsReached = $this->isMaxRequestsReached();
+        $hasMaxDurationReached = $this->isMaxDurationInSecondsReached();
+
+        if ($hasMaxRequestsReached) {
+            $this->log(LogLevel::DEBUG, 'Configured max requests reached!');
+        }
+
+        if ($hasMaxDurationReached) {
+            $this->log(LogLevel::DEBUG, 'Configured max duration reached!');
+        }
+
         while (!$this->isMaxConcurrencyReached()
-            && !$this->isMaxRequestsReached()
+            && !$hasMaxRequestsReached
+            && !$hasMaxDurationReached
             && ($crawlUri = $this->queue->getNext($this->jobId))
         ) {
             // Already processed, ignore
@@ -570,7 +619,7 @@ final class Escargot
 
             // Request delay
             if (0 !== $this->requestDelay) {
-                usleep($this->requestDelay);
+                $this->clock->sleep($this->requestDelay / 1000000);
             }
 
             try {
@@ -602,6 +651,15 @@ final class Escargot
     private function isMaxRequestsReached(): bool
     {
         return 0 !== $this->maxRequests && $this->requestsSent >= $this->maxRequests;
+    }
+
+    private function isMaxDurationInSecondsReached(): bool
+    {
+        if (0 === $this->maxDurationInSeconds) {
+            return false;
+        }
+
+        return $this->clock->now() >= ($this->startTime->add(new \DateInterval('PT' . $this->maxDurationInSeconds . 'S')));
     }
 
     private function isMaxConcurrencyReached(): bool

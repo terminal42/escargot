@@ -19,6 +19,7 @@ use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Psr\Log\Test\TestLogger;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
@@ -37,6 +38,7 @@ use Terminal42\Escargot\Subscriber\SubscriberInterface;
 use Terminal42\Escargot\Subscriber\TagValueResolvingSubscriberInterface;
 use Terminal42\Escargot\SubscriberLogger;
 use Terminal42\Escargot\SubscriberLoggerTrait;
+use Terminal42\Escargot\Tests\Scenario\MockResponseFactory;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
 
 class EscargotTest extends TestCase
@@ -180,6 +182,50 @@ class EscargotTest extends TestCase
         $this->assertSame('success', $escargot->resolveTagValue('foobar'));
     }
 
+    public function testMaxDuration(): void
+    {
+        $mockResponse = <<<HTML
+HTTP/2.0 200 OK
+content-type: text/html; charset=UTF-8
+
+<html>
+    <head>
+    </head>
+    <body>
+        <a href="https://www.terminal42.ch/%s">Link</a>
+    </body>
+</html>
+HTML;
+
+        $baseUris = new BaseUriCollection();
+        $baseUris->add(new Uri('https://www.terminal42.ch'));
+        $queue = new InMemoryQueue();
+        $clock = new MockClock();
+        $client = new MockHttpClient(function ($method, $url) use ($clock, $mockResponse) {
+            $clock->sleep(1); // Mock the request that takes a second to complete
+
+            return MockResponseFactory::createFromString(sprintf($mockResponse, uniqid()));
+        });
+        $logger = new TestLogger();
+
+        $escargot = Escargot::create($baseUris, $queue)
+            ->withLogger($logger)
+            ->withHttpClient($client)
+            ->withMaxDurationInSeconds(5)
+            ->withClock($clock)
+        ;
+
+        $escargot->addSubscriber(new HtmlCrawlerSubscriber());
+        $escargot->addSubscriber($this->getSearchIndexSubscriber());
+
+        $escargot->crawl();
+
+        $this->assertSame([
+            '[Terminal42\Escargot\Escargot] Configured max duration reached!',
+            '[Terminal42\Escargot\Escargot] Finished crawling! Sent 5 request(s).',
+        ], $this->cleanLogs($logger));
+    }
+
     /**
      * @dataProvider crawlProvider
      */
@@ -216,7 +262,20 @@ class EscargotTest extends TestCase
 
         $escargot->crawl();
 
-        $filteredLogs = array_map(function (array $record) {
+        $filteredLogs = $this->cleanLogs($logger);
+
+        $this->assertSame($expectedLogs, $filteredLogs, $message);
+
+        $filteredRequests = array_map(function (CrawlUri $crawlUri) {
+            return sprintf('Successful request! %s.', (string) $crawlUri);
+        }, $indexerSubscriber->getUris());
+
+        $this->assertSame($expectedRequests, $filteredRequests, $message);
+    }
+
+    private function cleanLogs(TestLogger $testLogger): array
+    {
+         return array_map(function (array $record) {
             $message = $record['message'];
 
             if (isset($record['context']['crawlUri'])) {
@@ -228,15 +287,7 @@ class EscargotTest extends TestCase
             }
 
             return $message;
-        }, $logger->records);
-
-        $this->assertSame($expectedLogs, $filteredLogs, $message);
-
-        $filteredRequests = array_map(function (CrawlUri $crawlUri) {
-            return sprintf('Successful request! %s.', (string) $crawlUri);
-        }, $indexerSubscriber->getUris());
-
-        $this->assertSame($expectedRequests, $filteredRequests, $message);
+        }, $testLogger->records);
     }
 
     public function crawlProvider(): \Generator
