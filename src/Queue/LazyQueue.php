@@ -19,29 +19,16 @@ use Terminal42\Escargot\CrawlUri;
 final class LazyQueue implements QueueInterface
 {
     /**
-     * @var QueueInterface
+     * @var array<string, string>
      */
-    private $primaryQueue;
+    private array $jobIdMapper = [];
 
-    /**
-     * @var QueueInterface
-     */
-    private $secondaryQueue;
+    private int $toSkip = 0;
 
-    /**
-     * @var array<string,string>
-     */
-    private $jobIdMapper = [];
-
-    /**
-     * @var int
-     */
-    private $toSkip = 0;
-
-    public function __construct(QueueInterface $primaryQueue, QueueInterface $secondaryQueue)
-    {
-        $this->primaryQueue = $primaryQueue;
-        $this->secondaryQueue = $secondaryQueue;
+    public function __construct(
+        private readonly QueueInterface $primaryQueue,
+        private readonly QueueInterface $secondaryQueue,
+    ) {
     }
 
     public function createJobId(BaseUriCollection $baseUris): string
@@ -69,7 +56,7 @@ final class LazyQueue implements QueueInterface
         return $this->primaryQueue->getBaseUris($this->getJobIdFromSecondaryJobId($jobId));
     }
 
-    public function get(string $jobId, UriInterface $uri): ?CrawlUri
+    public function get(string $jobId, UriInterface $uri): CrawlUri|null
     {
         // If we have it in the primary queue, early return
         $crawlUri = $this->primaryQueue->get($this->getJobIdFromSecondaryJobId($jobId), $uri);
@@ -100,7 +87,7 @@ final class LazyQueue implements QueueInterface
         }
     }
 
-    public function getNext(string $jobId, int $skip = 0): ?CrawlUri
+    public function getNext(string $jobId, int $skip = 0): CrawlUri|null
     {
         // If we have it in the primary queue, early return
         $next = $this->primaryQueue->getNext($this->getJobIdFromSecondaryJobId($jobId), $skip);

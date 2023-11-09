@@ -12,11 +12,12 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot;
 
-use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
+use Symfony\Component\Clock\ClockInterface;
+use Symfony\Component\Clock\NativeClock;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
@@ -36,101 +37,73 @@ final class Escargot
 {
     private const DEFAULT_USER_AGENT = 'terminal42/escargot';
 
-    /**
-     * @var QueueInterface
-     */
-    private $queue;
+    private ClockInterface $clock;
+
+    private HttpClientInterface|null $client = null;
+
+    private LoggerInterface|null $logger = null;
 
     /**
-     * @var string
+     * @var array<SubscriberInterface>
      */
-    private $jobId;
+    private array $subscribers = [];
 
-    /**
-     * @var BaseUriCollection
-     */
-    private $baseUris;
-
-    /**
-     * @var HttpClientInterface|null
-     */
-    private $client;
-
-    /**
-     * @var LoggerInterface|null
-     */
-    private $logger;
-
-    /**
-     * @var SubscriberInterface[]
-     */
-    private $subscribers = [];
-
-    /**
-     * @var string
-     */
-    private $userAgent;
+    private string $userAgent;
 
     /**
      * Maximum number of requests
      * Escargot is going to
      * execute.
      * 0 means no limit.
-     *
-     * @var int
      */
-    private $maxRequests = 0;
+    private int $maxRequests = 0;
+
+    /**
+     * Maximum number of duration in seconds
+     * Escargot is going to work on requests.
+     *
+     * 0 means no limit.
+     */
+    private int $maxDurationInSeconds = 0;
 
     /**
      * Request delay in microseconds.
      * 0 means no delay.
-     *
-     * @var int
      */
-    private $requestDelay = 0;
+    private int $requestDelay = 0;
 
     /**
      * Maximum concurrent requests
      * that are being sent.
-     *
-     * @var int
      */
-    private $concurrency = 10;
+    private int $concurrency = 10;
 
     /**
      * Maximum depth Escargot
      * is going to crawl.
      * 0 means no limit.
-     *
-     * @var int
      */
-    private $maxDepth = 0;
+    private int $maxDepth = 0;
 
-    /**
-     * @var int
-     */
-    private $requestsSent = 0;
+    private int $requestsSent = 0;
 
-    /**
-     * @var array
-     */
-    private $runningRequests = [];
+    private array $runningRequests = [];
 
     /**
      * Keeps track of all the decisions
      * for all the subscribers for
      * every CrawlUri instance.
-     *
-     * @var array
      */
-    private $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
+    private array $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
 
-    private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris)
-    {
-        $this->queue = $queue;
-        $this->jobId = $jobId;
-        $this->baseUris = $baseUris;
+    private \DateTimeImmutable $startTime;
 
+    private function __construct(
+        private readonly QueueInterface $queue,
+        private readonly string $jobId,
+        private readonly BaseUriCollection $baseUris,
+    ) {
+        $this->clock = new NativeClock();
         $this->userAgent = self::DEFAULT_USER_AGENT;
     }
 
@@ -157,7 +130,7 @@ final class Escargot
     }
 
     /**
-     * @return SubscriberInterface[]
+     * @return array<SubscriberInterface>
      */
     public function getSubscribers(): array
     {
@@ -183,6 +156,22 @@ final class Escargot
     {
         $new = clone $this;
         $new->maxRequests = $maxRequests;
+
+        return $new;
+    }
+
+    public function withMaxDurationInSeconds(int $maxDurationInSeconds): self
+    {
+        $new = clone $this;
+        $new->maxDurationInSeconds = $maxDurationInSeconds;
+
+        return $new;
+    }
+
+    public function withClock(ClockInterface $clock): self
+    {
+        $new = clone $this;
+        $new->clock = $clock;
 
         return $new;
     }
@@ -246,7 +235,7 @@ final class Escargot
         return $this;
     }
 
-    public function getLogger(): ?LoggerInterface
+    public function getLogger(): LoggerInterface|null
     {
         return $this->logger;
     }
@@ -299,7 +288,7 @@ final class Escargot
         return new self(
             $queue,
             $jobId,
-            $queue->getBaseUris($jobId)
+            $queue->getBaseUris($jobId),
         );
     }
 
@@ -314,12 +303,14 @@ final class Escargot
         return new self(
             $queue,
             $jobId,
-            $baseUris
+            $baseUris,
         );
     }
 
     public function crawl(): void
     {
+        $this->startTime = $this->clock->now();
+
         while (true) {
             $responses = $this->prepareResponses();
 
@@ -332,7 +323,7 @@ final class Escargot
 
         $this->log(
             LogLevel::DEBUG,
-            sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent())
+            sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()),
         );
 
         foreach ($this->subscribers as $subscriber) {
@@ -351,6 +342,7 @@ final class Escargot
      * You can use Escargot::isMaxDepthReached() for that.
      *
      * @return CrawlUri the new CrawlUri instance
+     *
      * @throw \BadMethodCallException If max depth would be reached.
      */
     public function addUriToQueue(UriInterface $uri, CrawlUri $foundOn, bool $processed = false): CrawlUri
@@ -377,7 +369,7 @@ final class Escargot
         return $foundOn->getLevel() >= $this->getMaxDepth();
     }
 
-    public function getCrawlUri(UriInterface $uri): ?CrawlUri
+    public function getCrawlUri(UriInterface $uri): CrawlUri|null
     {
         return $this->queue->get($this->jobId, $uri);
     }
@@ -402,7 +394,7 @@ final class Escargot
     {
         if (null !== $this->logger && $subscriber instanceof LoggerAwareInterface) {
             // Decorate logger to automatically pass the subscriber in the logging context
-            $logger = new SubscriberLogger($this->logger, \get_class($subscriber));
+            $logger = new SubscriberLogger($this->logger, $subscriber::class);
             $subscriber->setLogger($logger);
         }
     }
@@ -410,13 +402,13 @@ final class Escargot
     /**
      * Logs a message to the logger if one was provided.
      */
-    private function log(string $level, string $message, CrawlUri $crawlUri = null): void
+    private function log(string $level, string $message, CrawlUri|null $crawlUri = null): void
     {
         if (null === $this->logger) {
             return;
         }
 
-        $context = ['source' => static::class];
+        $context = ['source' => self::class];
 
         if (null !== $crawlUri) {
             $context['crawlUri'] = $crawlUri;
@@ -467,13 +459,14 @@ final class Escargot
             if ($chunk->isFirst()) {
                 // If the response was a redirect of an URI we have already crawled, we can early abort
                 // this response as it has already been processed.
-                if ($response->getInfo('redirect_count') > 0
+                if (
+                    $response->getInfo('redirect_count') > 0
                     && null !== $this->queue->get($this->getJobId(), CrawlUri::normalizeUri(HttpUriFactory::create((string) $response->getInfo('url'))))
                 ) {
                     $this->log(
                         LogLevel::DEBUG,
                         'Skipped further response processing because crawler got redirected to an URI that\'s already been crawled.',
-                        $crawlUri
+                        $crawlUri,
                     );
                     $response->cancel();
                     $this->finishRequest($response);
@@ -487,6 +480,7 @@ final class Escargot
                 $response->getHeaders();
 
                 $needsContent = false;
+
                 foreach ($this->subscribers as $subscriber) {
                     $shouldRequestDecision = $this->getDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber);
                     if (SubscriberInterface::DECISION_NEGATIVE === $shouldRequestDecision) {
@@ -527,10 +521,23 @@ final class Escargot
      */
     private function prepareResponses(): array
     {
+        $response = null;
         $responses = [];
 
+        $hasMaxRequestsReached = $this->isMaxRequestsReached();
+        $hasMaxDurationReached = $this->isMaxDurationInSecondsReached();
+
+        if ($hasMaxRequestsReached) {
+            $this->log(LogLevel::DEBUG, 'Configured max requests reached!');
+        }
+
+        if ($hasMaxDurationReached) {
+            $this->log(LogLevel::DEBUG, 'Configured max duration reached!');
+        }
+
         while (!$this->isMaxConcurrencyReached()
-            && !$this->isMaxRequestsReached()
+            && !$hasMaxRequestsReached
+            && !$hasMaxDurationReached
             && ($crawlUri = $this->queue->getNext($this->jobId))
         ) {
             // Already processed, ignore
@@ -547,7 +554,7 @@ final class Escargot
                 $this->log(
                     LogLevel::DEBUG,
                     'Skipped because it\'s not a valid http(s) URI.',
-                    $crawlUri
+                    $crawlUri,
                 );
                 continue;
             }
@@ -570,13 +577,17 @@ final class Escargot
 
             // Request delay
             if (0 !== $this->requestDelay) {
-                usleep($this->requestDelay);
+                $this->clock->sleep($this->requestDelay / 1_000_000);
             }
 
             try {
-                $response = $this->getClient()->request('GET', (string) $crawlUri->getUri(), [
-                    'user_data' => $crawlUri,
-                ]);
+                $response = $this->getClient()->request(
+                    'GET',
+                    (string) $crawlUri->getUri(),
+                    [
+                        'user_data' => $crawlUri,
+                    ],
+                );
                 $responses[] = $response;
 
                 // Mark the response as started
@@ -591,12 +602,12 @@ final class Escargot
 
     private function storeDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber, string $decision): void
     {
-        $this->decisionMap[$key][(string) $crawlUri->getUri().\get_class($subscriber)] = $decision;
+        $this->decisionMap[$key][(string) $crawlUri->getUri().$subscriber::class] = $decision;
     }
 
     private function getDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber): string
     {
-        return $this->decisionMap[$key][(string) $crawlUri->getUri().\get_class($subscriber)] ?? SubscriberInterface::DECISION_ABSTAIN;
+        return $this->decisionMap[$key][(string) $crawlUri->getUri().$subscriber::class] ?? SubscriberInterface::DECISION_ABSTAIN;
     }
 
     private function isMaxRequestsReached(): bool
@@ -604,18 +615,27 @@ final class Escargot
         return 0 !== $this->maxRequests && $this->requestsSent >= $this->maxRequests;
     }
 
+    private function isMaxDurationInSecondsReached(): bool
+    {
+        if (0 === $this->maxDurationInSeconds) {
+            return false;
+        }
+
+        return $this->clock->now() >= $this->startTime->add(new \DateInterval('PT'.$this->maxDurationInSeconds.'S'));
+    }
+
     private function isMaxConcurrencyReached(): bool
     {
         return \count($this->runningRequests) >= $this->concurrency;
     }
 
-    private function handleException(ExceptionInterface $exception, CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk = null): void
+    private function handleException(ExceptionInterface $exception, CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface|null $chunk = null): void
     {
         // Log the exception
         $this->log(
             LogLevel::DEBUG,
-            sprintf('Exception of type "%s" occurred: %s', \get_class($exception), $exception->getMessage()),
-            $crawlUri
+            sprintf('Exception of type "%s" occurred: %s', $exception::class, $exception->getMessage()),
+            $crawlUri,
         );
 
         // Mark the responses as finished
@@ -633,16 +653,11 @@ final class Escargot
                     continue;
                 }
 
-                switch (true) {
-                    case $exception instanceof TransportExceptionInterface:
-                        $subscriber->onTransportException($crawlUri, $exception, $response);
-                        break;
-                    case $exception instanceof HttpExceptionInterface:
-                        $subscriber->onHttpException($crawlUri, $exception, $response, $chunk);
-                        break;
-                    default:
-                        throw new \RuntimeException('Unknown exception type!');
-                }
+                match (true) {
+                    $exception instanceof TransportExceptionInterface => $subscriber->onTransportException($crawlUri, $exception, $response),
+                    $exception instanceof HttpExceptionInterface => $subscriber->onHttpException($crawlUri, $exception, $response, $chunk),
+                    default => throw new \RuntimeException('Unknown exception type!'),
+                };
             }
         }
 

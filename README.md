@@ -211,7 +211,7 @@ There are `2` other interfaces which you might want to integrate but you don't h
 #### Tags
 
 Sometimes you may want to add meta information to any `CrawlUri`  instance so you can let other subscribers decide
-what they want to do with this information or it may be relevant during another request.
+what they want to do with this information, or it may be relevant during another request.
 The `RobotsSubscriber` for instance, tags `CrawlUri` instances when they contained a `<meta name="robots" content="nofollow">`
 in the body or the corresponding `X-Robots-Tag` header was set. All the links found on this URI are then not followed
 which happens during the next `shouldRequest()` call.
@@ -438,6 +438,12 @@ There are different configurations you can apply to the `Escargot` instance:
 
    Returns a clone of the `Escargot` instance with a maximum total requests that are going to be executed. It can be
    useful if you have limited resources and only want to execute e.g. `100` requests in this run and continue later on.
+
+* `Escargot::withMaxDurationInSeconds(int $maxDurationInSeconds): Escargot`
+
+   Returns a clone of the `Escargot` instance with a maximum total seconds Escargot is going to be running. It can be
+   useful if you have limited resources and only want to execute the crawl process for e.g. `30` seconds in this run 
+   and continue later on.
    
 * `Escargot::withUserAgent(string $userAgent): Escargot`
 

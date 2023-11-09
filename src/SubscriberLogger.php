@@ -17,25 +17,17 @@ use Psr\Log\LoggerInterface;
 
 class SubscriberLogger extends AbstractLogger
 {
-    /**
-     * @var LoggerInterface
-     */
-    private $decorated;
+    private string|null $subscriberClass = null;
 
-    /**
-     * @var string
-     */
-    private $subscriberClass;
-
-    public function __construct(LoggerInterface $decorated, string $subscriberClass)
-    {
+    public function __construct(
+        private readonly LoggerInterface $decorated,
+        string $subscriberClass,
+    ) {
         // Anonymous class names contain null bytes so let's standardize them a little
-        if (false !== strpos($subscriberClass, '@anonymous')) {
+        if (str_contains($subscriberClass, '@anonymous')) {
             $subscriberClass = 'class@anonymous:'.basename($subscriberClass);
             $subscriberClass = preg_replace('/\.php(.+)$/', '', $subscriberClass);
         }
-
-        $this->decorated = $decorated;
         $this->subscriberClass = $subscriberClass;
     }
 
@@ -44,9 +36,6 @@ class SubscriberLogger extends AbstractLogger
         $this->log($level, $message, ['crawlUri' => $crawlUri]);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function log($level, $message, array $context = []): void
     {
         $context = array_merge($context, ['source' => $this->subscriberClass]);

@@ -12,7 +12,6 @@ declare(strict_types=1);
 
 namespace Terminal42\Escargot\Subscriber;
 
-use Nyholm\Psr7\Uri;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
@@ -38,18 +37,18 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
     use SubscriberLoggerTrait;
 
     public const TAG_NOINDEX = 'noindex';
+
     public const TAG_NOFOLLOW = 'nofollow';
+
     public const TAG_DISALLOWED_ROBOTS_TXT = 'disallowed-robots-txt';
+
     public const TAG_IS_SITEMAP = 'is-sitemap';
 
     /**
-     * @var array<string,File>
+     * @var array<string, File>
      */
-    private $robotsTxtCache = [];
+    private array $robotsTxtCache = [];
 
-    /**
-     * {@inheritdoc}
-     */
     public function shouldRequest(CrawlUri $crawlUri): string
     {
         // Check if it is a sitemap previously found
@@ -64,9 +63,6 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         return self::DECISION_ABSTAIN;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
     {
         // Check if it is a sitemap previously found
@@ -80,7 +76,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             $this->handleNoindexNofollowTags(
                 $crawlUri,
                 $xRobotsTagValue,
-                'Added the "%tag%" tag because the X-Robots-Tag header contained "%value%".'
+                'Added the "%tag%" tag because the X-Robots-Tag header contained "%value%".',
             );
         }
 
@@ -109,7 +105,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         $this->handleNoindexNofollowTags(
             $crawlUri,
             $robotsMetaTagValue,
-            'Added the "%tag%" tag because the <meta name="robots"> tag contained "%value%".'
+            'Added the "%tag%" tag because the <meta name="robots"> tag contained "%value%".',
         );
     }
 
@@ -117,11 +113,11 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
     {
         $tags = [];
 
-        if (false !== strpos($value, 'noindex')) {
+        if (str_contains($value, 'noindex')) {
             $tags[] = self::TAG_NOINDEX;
         }
 
-        if (false !== strpos($value, 'nofollow')) {
+        if (str_contains($value, 'nofollow')) {
             $tags[] = self::TAG_NOFOLLOW;
         }
 
@@ -131,7 +127,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             $this->logWithCrawlUri(
                 $crawlUri,
                 LogLevel::DEBUG,
-                str_replace(['%value%', '%tag%'], [$value, $tag], $messageTpl)
+                str_replace(['%value%', '%tag%'], [$value, $tag], $messageTpl),
             );
         }
     }
@@ -160,13 +156,13 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
                 LogLevel::DEBUG,
                 sprintf(
                     'Added the "%s" tag because of the robots.txt content.',
-                    self::TAG_DISALLOWED_ROBOTS_TXT
-                )
+                    self::TAG_DISALLOWED_ROBOTS_TXT,
+                ),
             );
         }
     }
 
-    private function getRobotsTxtFile(CrawlUri $crawlUri): ?File
+    private function getRobotsTxtFile(CrawlUri $crawlUri): File|null
     {
         $robotsTxtUri = $this->getRobotsTxtUri($crawlUri);
 
@@ -180,7 +176,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
             try {
                 $robotsTxtContent = $response->getContent();
-            } catch (HttpExceptionInterface $e) {
+            } catch (HttpExceptionInterface) {
                 return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
             }
 
@@ -188,7 +184,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             $parser->setSource($robotsTxtContent);
 
             return $this->robotsTxtCache[(string) $robotsTxtUri] = $parser->getFile();
-        } catch (TransportExceptionInterface $exception) {
+        } catch (TransportExceptionInterface) {
             return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
         }
     }
@@ -213,14 +209,14 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         foreach ($robotsTxt->getNonGroupDirectives()->getByField('sitemap')->getDirectives() as $directive) {
             try {
                 $sitemapUri = HttpUriFactory::create($directive->getValue()->get());
-            } catch (\InvalidArgumentException $e) {
+            } catch (\InvalidArgumentException) {
                 $this->logWithCrawlUri(
                     $crawlUri,
                     LogLevel::DEBUG,
                     sprintf(
                         'Could not add sitemap URI "%s" to the queue because the URI is invalid.',
-                        $directive->getValue()->get()
-                    )
+                        $directive->getValue()->get(),
+                    ),
                 );
                 continue;
             }
@@ -242,31 +238,34 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             return;
         }
 
-        set_error_handler(function ($errno, $errstr): void {
-            throw new \Exception($errstr, $errno);
-        });
+        set_error_handler(
+            static function ($errno, $errstr): never {
+                throw new \Exception($errstr, $errno);
+            },
+        );
+
         try {
             $urls = new \SimpleXMLElement($content);
-        } catch (\Exception $exception) {
+        } catch (\Exception) {
             return;
         } finally {
             restore_error_handler();
         }
 
-        $sitemapIndex = ('sitemapindex' === $urls->getName());
+        $sitemapIndex = 'sitemapindex' === $urls->getName();
 
         foreach ($urls as $url) {
             // Add it to the queue if not present already
             try {
                 $uri = HttpUriFactory::create((string) $url->loc);
-            } catch (\InvalidArgumentException $e) {
+            } catch (\InvalidArgumentException) {
                 $this->logWithCrawlUri(
                     $sitemapUri,
                     LogLevel::DEBUG,
                     sprintf(
                         'Could not add URI "%s" found on in the sitemap to the queue because the URI is invalid.',
-                        (string) $url->loc
-                    )
+                        (string) $url->loc,
+                    ),
                 );
 
                 continue;

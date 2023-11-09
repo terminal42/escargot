@@ -1,1 +1,2 @@
+[Terminal42\Escargot\Escargot] Configured max requests reached!
 [Terminal42\Escargot\Escargot] Finished crawling! Sent 2 request(s).

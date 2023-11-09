@@ -24,7 +24,7 @@ class Util
             return false;
         }
 
-        return false !== strpos($response->getHeaders()['content-type'][0], $contentType);
+        return str_contains($response->getHeaders()['content-type'][0], $contentType);
     }
 
     /**

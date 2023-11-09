@@ -14,43 +14,23 @@ namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
 
-final class CrawlUri
+final class CrawlUri implements \Stringable
 {
-    /**
-     * @var UriInterface
-     */
-    private $uri;
+    private readonly UriInterface $uri;
 
-    /**
-     * @var int
-     */
-    private $level;
+    private bool $wasMarkedProcessed = false;
 
-    /**
-     * @var bool
-     */
-    private $processed = false;
+    private UriInterface|null $foundOn = null;
 
-    /**
-     * @var bool
-     */
-    private $wasMarkedProcessed = false;
+    private array $tags = [];
 
-    /**
-     * @var UriInterface|null
-     */
-    private $foundOn = null;
-
-    /**
-     * @var array
-     */
-    private $tags = [];
-
-    public function __construct(UriInterface $uri, int $level, bool $processed = false, ?UriInterface $foundOn = null)
-    {
+    public function __construct(
+        UriInterface $uri,
+        private readonly int $level,
+        private bool $processed = false,
+        UriInterface|null $foundOn = null,
+    ) {
         $this->uri = self::normalizeUri($uri);
-        $this->level = $level;
-        $this->processed = $processed;
 
         if (null !== $foundOn) {
             $this->foundOn = self::normalizeUri($foundOn);
@@ -64,7 +44,7 @@ final class CrawlUri
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',
             (string) ($this->getFoundOn() ?: 'root'),
-            $this->getTags() ? implode(', ', $this->getTags()) : 'none'
+            $this->getTags() ? implode(', ', $this->getTags()) : 'none',
         );
     }
 
@@ -96,7 +76,7 @@ final class CrawlUri
         return $this->wasMarkedProcessed;
     }
 
-    public function getFoundOn(): ?UriInterface
+    public function getFoundOn(): UriInterface|null
     {
         return $this->foundOn;
     }
@@ -108,7 +88,7 @@ final class CrawlUri
 
     public function addTag(string $tag): self
     {
-        if (false !== strpos($tag, ',')) {
+        if (str_contains($tag, ',')) {
             throw new \InvalidArgumentException('Cannot use commas in tags.');
         }
 
@@ -139,8 +119,6 @@ final class CrawlUri
             $uri = $uri->withPath('/');
         }
 
-        $uri = $uri->withFragment('');
-
-        return $uri;
+        return $uri->withFragment('');
     }
 }

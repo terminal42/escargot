@@ -19,6 +19,7 @@ use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LogLevel;
 use Psr\Log\Test\TestLogger;
+use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Finder\Finder;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Contracts\HttpClient\ChunkInterface;
@@ -37,6 +38,7 @@ use Terminal42\Escargot\Subscriber\SubscriberInterface;
 use Terminal42\Escargot\Subscriber\TagValueResolvingSubscriberInterface;
 use Terminal42\Escargot\SubscriberLogger;
 use Terminal42\Escargot\SubscriberLoggerTrait;
+use Terminal42\Escargot\Tests\Scenario\MockResponseFactory;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
 
 class EscargotTest extends TestCase
@@ -70,14 +72,17 @@ class EscargotTest extends TestCase
         $subscriber = $this->createMock(CompleteSubscriber::class);
         $subscriber
             ->expects($this->exactly(5))
-            ->method('setEscargot');
+            ->method('setEscargot')
+        ;
+
         $subscriber
             ->expects($this->once())
             ->method('setLogger')
-            ->with($this->callback(function (LoggerInterface $logger) {
+            ->with($this->callback(
                 // Must be decorated
-                return $logger instanceof SubscriberLogger;
-            }));
+                static fn (LoggerInterface $logger) => $logger instanceof SubscriberLogger,
+            ))
+        ;
 
         $escargot->addSubscriber($subscriber);
 
@@ -180,6 +185,55 @@ class EscargotTest extends TestCase
         $this->assertSame('success', $escargot->resolveTagValue('foobar'));
     }
 
+    public function testMaxDuration(): void
+    {
+        $mockResponse = <<<'HTML'
+            HTTP/2.0 200 OK
+            content-type: text/html; charset=UTF-8
+
+            <html>
+                <head>
+                </head>
+                <body>
+                    <a href="https://www.terminal42.ch/%s">Link</a>
+                </body>
+            </html>
+            HTML;
+
+        $baseUris = new BaseUriCollection();
+        $baseUris->add(new Uri('https://www.terminal42.ch'));
+        $queue = new InMemoryQueue();
+        $clock = new MockClock();
+        $client = new MockHttpClient(
+            static function ($method, $url) use ($clock, $mockResponse) {
+                $clock->sleep(1); // Mock the request that takes a second to complete
+
+                return MockResponseFactory::createFromString(sprintf($mockResponse, uniqid()));
+            },
+        );
+        $logger = new TestLogger();
+
+        $escargot = Escargot::create($baseUris, $queue)
+            ->withLogger($logger)
+            ->withHttpClient($client)
+            ->withMaxDurationInSeconds(5)
+            ->withClock($clock)
+        ;
+
+        $escargot->addSubscriber(new HtmlCrawlerSubscriber());
+        $escargot->addSubscriber($this->getSearchIndexSubscriber());
+
+        $escargot->crawl();
+
+        $this->assertSame(
+            [
+                '[Terminal42\Escargot\Escargot] Configured max duration reached!',
+                '[Terminal42\Escargot\Escargot] Finished crawling! Sent 5 request(s).',
+            ],
+            $this->cleanLogs($logger),
+        );
+    }
+
     /**
      * @dataProvider crawlProvider
      */
@@ -193,7 +247,7 @@ class EscargotTest extends TestCase
         $escargot = Escargot::create($baseUris, $queue);
         $escargot = $escargot->withHttpClient(new MockHttpClient($responseFactory));
 
-        if (0 !== \count($options)) {
+        if (0 !== (is_countable($options) ? \count($options) : 0)) {
             if (\array_key_exists('max_requests', $options)) {
                 $escargot = $escargot->withMaxRequests((int) $options['max_requests']);
             }
@@ -216,25 +270,11 @@ class EscargotTest extends TestCase
 
         $escargot->crawl();
 
-        $filteredLogs = array_map(function (array $record) {
-            $message = $record['message'];
-
-            if (isset($record['context']['crawlUri'])) {
-                $message = sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
-            }
-
-            if (isset($record['context']['source'])) {
-                $message = sprintf('[%s] %s', $record['context']['source'], $message);
-            }
-
-            return $message;
-        }, $logger->records);
+        $filteredLogs = $this->cleanLogs($logger);
 
         $this->assertSame($expectedLogs, $filteredLogs, $message);
 
-        $filteredRequests = array_map(function (CrawlUri $crawlUri) {
-            return sprintf('Successful request! %s.', (string) $crawlUri);
-        }, $indexerSubscriber->getUris());
+        $filteredRequests = array_map(static fn (CrawlUri $crawlUri) => sprintf('Successful request! %s.', (string) $crawlUri), $indexerSubscriber->getUris());
 
         $this->assertSame($expectedRequests, $filteredRequests, $message);
     }
@@ -255,6 +295,26 @@ class EscargotTest extends TestCase
         }
     }
 
+    private function cleanLogs(TestLogger $testLogger): array
+    {
+        return array_map(
+            static function (array $record) {
+                $message = $record['message'];
+
+                if (isset($record['context']['crawlUri'])) {
+                    $message = sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
+                }
+
+                if (isset($record['context']['source'])) {
+                    $message = sprintf('[%s] %s', $record['context']['source'], $message);
+                }
+
+                return $message;
+            },
+            $testLogger->records,
+        );
+    }
+
     private function getSearchIndexSubscriber(): SubscriberInterface
     {
         return new class() implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface {
@@ -262,7 +322,7 @@ class EscargotTest extends TestCase
             use LoggerAwareTrait;
             use SubscriberLoggerTrait;
 
-            private $uris = [];
+            private array $uris = [];
 
             public function getUris(): array
             {
@@ -277,7 +337,7 @@ class EscargotTest extends TestCase
                         $this->logWithCrawlUri(
                             $crawlUri,
                             LogLevel::DEBUG,
-                            'Do not request because when the crawl URI was found, the robots information disallowed following this URI.'
+                            'Do not request because when the crawl URI was found, the robots information disallowed following this URI.',
                         );
 
                         return SubscriberInterface::DECISION_NEGATIVE;
@@ -289,7 +349,7 @@ class EscargotTest extends TestCase
                     $this->logWithCrawlUri(
                         $crawlUri,
                         LogLevel::DEBUG,
-                        'Do not request because it was disallowed by the robots.txt.'
+                        'Do not request because it was disallowed by the robots.txt.',
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;
@@ -300,7 +360,7 @@ class EscargotTest extends TestCase
                     $this->logWithCrawlUri(
                         $crawlUri,
                         LogLevel::DEBUG,
-                        'Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".'
+                        'Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".',
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;
@@ -311,7 +371,7 @@ class EscargotTest extends TestCase
                     $this->logWithCrawlUri(
                         $crawlUri,
                         LogLevel::DEBUG,
-                        'Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".'
+                        'Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".',
                     );
 
                     return SubscriberInterface::DECISION_NEGATIVE;
