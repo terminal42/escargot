@@ -47,7 +47,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
     /**
      * @var array<string, File>
      */
-    private $robotsTxtCache = [];
+    private array $robotsTxtCache = [];
 
     public function shouldRequest(CrawlUri $crawlUri): string
     {
@@ -176,7 +176,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
 
             try {
                 $robotsTxtContent = $response->getContent();
-            } catch (HttpExceptionInterface $e) {
+            } catch (HttpExceptionInterface) {
                 return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
             }
 
@@ -184,7 +184,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             $parser->setSource($robotsTxtContent);
 
             return $this->robotsTxtCache[(string) $robotsTxtUri] = $parser->getFile();
-        } catch (TransportExceptionInterface $exception) {
+        } catch (TransportExceptionInterface) {
             return $this->robotsTxtCache[(string) $robotsTxtUri] = null;
         }
     }
@@ -209,7 +209,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         foreach ($robotsTxt->getNonGroupDirectives()->getByField('sitemap')->getDirectives() as $directive) {
             try {
                 $sitemapUri = HttpUriFactory::create($directive->getValue()->get());
-            } catch (\InvalidArgumentException $e) {
+            } catch (\InvalidArgumentException) {
                 $this->logWithCrawlUri(
                     $crawlUri,
                     LogLevel::DEBUG,
@@ -239,14 +239,14 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
         }
 
         set_error_handler(
-            static function ($errno, $errstr): void {
+            static function ($errno, $errstr): never {
                 throw new \Exception($errstr, $errno);
             },
         );
 
         try {
             $urls = new \SimpleXMLElement($content);
-        } catch (\Exception $exception) {
+        } catch (\Exception) {
             return;
         } finally {
             restore_error_handler();
@@ -258,7 +258,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             // Add it to the queue if not present already
             try {
                 $uri = HttpUriFactory::create((string) $url->loc);
-            } catch (\InvalidArgumentException $e) {
+            } catch (\InvalidArgumentException) {
                 $this->logWithCrawlUri(
                     $sitemapUri,
                     LogLevel::DEBUG,

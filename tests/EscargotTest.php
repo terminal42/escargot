@@ -79,10 +79,8 @@ class EscargotTest extends TestCase
             ->expects($this->once())
             ->method('setLogger')
             ->with($this->callback(
-                static function (LoggerInterface $logger) {
-                    // Must be decorated
-                    return $logger instanceof SubscriberLogger;
-                },
+                // Must be decorated
+                static fn (LoggerInterface $logger) => $logger instanceof SubscriberLogger,
             ))
         ;
 
@@ -249,7 +247,7 @@ class EscargotTest extends TestCase
         $escargot = Escargot::create($baseUris, $queue);
         $escargot = $escargot->withHttpClient(new MockHttpClient($responseFactory));
 
-        if (0 !== \count($options)) {
+        if (0 !== (is_countable($options) ? \count($options) : 0)) {
             if (\array_key_exists('max_requests', $options)) {
                 $escargot = $escargot->withMaxRequests((int) $options['max_requests']);
             }
@@ -324,7 +322,7 @@ class EscargotTest extends TestCase
             use LoggerAwareTrait;
             use SubscriberLoggerTrait;
 
-            private $uris = [];
+            private array $uris = [];
 
             public function getUris(): array
             {

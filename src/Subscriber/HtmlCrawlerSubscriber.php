@@ -84,7 +84,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
         try {
             $uri = HttpUriFactory::create($uri);
-        } catch (\InvalidArgumentException $e) {
+        } catch (\InvalidArgumentException) {
             $this->logWithCrawlUri(
                 $crawlUri,
                 LogLevel::DEBUG,
@@ -119,8 +119,8 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
         // Add all data attributes as tags for e.g. other subscribers
         if ($node->hasAttributes()) {
             foreach ($node->attributes as $attribute) {
-                if (str_starts_with($attribute->name, 'data-')) {
-                    $newCrawlUri->addTag(substr($attribute->name, 5));
+                if (str_starts_with((string) $attribute->name, 'data-')) {
+                    $newCrawlUri->addTag(substr((string) $attribute->name, 5));
                 }
             }
         }

@@ -35,7 +35,7 @@ class MockResponseFactory
         }
 
         if (isset($mappedHeaders['x-escargottest-info'])) {
-            $info = array_merge($info, json_decode($mappedHeaders['x-escargottest-info'][0], true));
+            $info = array_merge($info, json_decode($mappedHeaders['x-escargottest-info'][0], true, 512, JSON_THROW_ON_ERROR));
             unset($mappedHeaders['x-escargottest-info']);
         }
 

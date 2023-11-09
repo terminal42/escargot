@@ -19,7 +19,7 @@ final class BaseUriCollection implements \IteratorAggregate, \Countable
     /**
      * @var array<UriInterface>
      */
-    private $baseUris = [];
+    private array $baseUris = [];
 
     /**
      * @param array<UriInterface> $baseUris

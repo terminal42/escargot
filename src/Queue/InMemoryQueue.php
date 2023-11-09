@@ -21,12 +21,12 @@ final class InMemoryQueue implements QueueInterface
     /**
      * @var array<string, array<UriInterface>>
      */
-    private $baseUris = [];
+    private array $baseUris = [];
 
     /**
      * @var array<string, array<string, CrawlUri>>
      */
-    private $queue = [];
+    private array $queue = [];
 
     public function createJobId(BaseUriCollection $baseUris): string
     {

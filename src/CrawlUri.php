@@ -14,43 +14,23 @@ namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
 
-final class CrawlUri
+final class CrawlUri implements \Stringable
 {
-    /**
-     * @var UriInterface
-     */
-    private $uri;
+    private readonly UriInterface $uri;
 
-    /**
-     * @var int
-     */
-    private $level;
+    private bool $wasMarkedProcessed = false;
 
-    /**
-     * @var bool
-     */
-    private $processed = false;
+    private UriInterface|null $foundOn = null;
 
-    /**
-     * @var bool
-     */
-    private $wasMarkedProcessed = false;
+    private array $tags = [];
 
-    /**
-     * @var UriInterface|null
-     */
-    private $foundOn;
-
-    /**
-     * @var array
-     */
-    private $tags = [];
-
-    public function __construct(UriInterface $uri, int $level, bool $processed = false, UriInterface|null $foundOn = null)
-    {
+    public function __construct(
+        UriInterface $uri,
+        private readonly int $level,
+        private bool $processed = false,
+        UriInterface|null $foundOn = null,
+    ) {
         $this->uri = self::normalizeUri($uri);
-        $this->level = $level;
-        $this->processed = $processed;
 
         if (null !== $foundOn) {
             $this->foundOn = self::normalizeUri($foundOn);

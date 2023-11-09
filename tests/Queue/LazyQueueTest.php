@@ -23,10 +23,7 @@ use Terminal42\Escargot\Queue\QueueInterface;
 
 class LazyQueueTest extends AbstractQueueTest
 {
-    /**
-     * @var DoctrineQueue
-     */
-    private $queue;
+    private DoctrineQueue $queue;
 
     protected function setUp(): void
     {

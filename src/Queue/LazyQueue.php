@@ -19,29 +19,16 @@ use Terminal42\Escargot\CrawlUri;
 final class LazyQueue implements QueueInterface
 {
     /**
-     * @var QueueInterface
-     */
-    private $primaryQueue;
-
-    /**
-     * @var QueueInterface
-     */
-    private $secondaryQueue;
-
-    /**
      * @var array<string, string>
      */
-    private $jobIdMapper = [];
+    private array $jobIdMapper = [];
 
-    /**
-     * @var int
-     */
-    private $toSkip = 0;
+    private int $toSkip = 0;
 
-    public function __construct(QueueInterface $primaryQueue, QueueInterface $secondaryQueue)
-    {
-        $this->primaryQueue = $primaryQueue;
-        $this->secondaryQueue = $secondaryQueue;
+    public function __construct(
+        private readonly QueueInterface $primaryQueue,
+        private readonly QueueInterface $secondaryQueue,
+    ) {
     }
 
     public function createJobId(BaseUriCollection $baseUris): string

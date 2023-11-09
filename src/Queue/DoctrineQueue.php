@@ -23,9 +23,9 @@ use Terminal42\Escargot\HttpUriFactory;
 final class DoctrineQueue implements QueueInterface
 {
     public function __construct(
-        private Connection $connection,
-        private \Closure $jobIdGenerator,
-        private string $tableName = 'escargot',
+        private readonly Connection $connection,
+        private readonly \Closure $jobIdGenerator,
+        private readonly string $tableName = 'escargot',
     ) {
     }
 

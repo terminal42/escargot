@@ -16,49 +16,23 @@ use Symfony\Component\Finder\Finder;
 
 class Scenario
 {
-    /**
-     * @var string
-     */
-    private $name;
+    private array|null $responses = null;
 
-    /**
-     * @var string
-     */
-    private $path;
+    private array $requests = [];
 
-    /**
-     * @var array
-     */
-    private $responses;
+    private array $logs = [];
 
-    /**
-     * @var array
-     */
-    private $requests = [];
+    private array $options = [];
 
-    /**
-     * @var array
-     */
-    private $logs = [];
-
-    /**
-     * @var array
-     */
-    private $options = [];
-
-    /**
-     * @var string
-     */
-    private $description = 'No scenario description given';
+    private string $description = 'No scenario description given';
 
     /**
      * Scenario constructor.
      */
-    public function __construct(string $name, string $path)
-    {
-        $this->name = $name;
-        $this->path = $path;
-
+    public function __construct(
+        private readonly string $name,
+        private readonly string $path,
+    ) {
         $this->build();
     }
 

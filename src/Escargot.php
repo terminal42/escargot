@@ -37,118 +37,72 @@ final class Escargot
 {
     private const DEFAULT_USER_AGENT = 'terminal42/escargot';
 
-    /**
-     * @var QueueInterface
-     */
-    private $queue;
+    private ClockInterface $clock;
 
-    /**
-     * @var ClockInterface
-     */
-    private $clock;
+    private HttpClientInterface|null $client = null;
 
-    /**
-     * @var string
-     */
-    private $jobId;
-
-    /**
-     * @var BaseUriCollection
-     */
-    private $baseUris;
-
-    /**
-     * @var HttpClientInterface|null
-     */
-    private $client;
-
-    /**
-     * @var LoggerInterface|null
-     */
-    private $logger;
+    private LoggerInterface|null $logger = null;
 
     /**
      * @var array<SubscriberInterface>
      */
-    private $subscribers = [];
+    private array $subscribers = [];
 
-    /**
-     * @var string
-     */
-    private $userAgent;
+    private string $userAgent;
 
     /**
      * Maximum number of requests
      * Escargot is going to
      * execute.
      * 0 means no limit.
-     *
-     * @var int
      */
-    private $maxRequests = 0;
+    private int $maxRequests = 0;
 
     /**
      * Maximum number of duration in seconds
      * Escargot is going to work on requests.
      *
      * 0 means no limit.
-     *
-     * @var int
      */
-    private $maxDurationInSeconds = 0;
+    private int $maxDurationInSeconds = 0;
 
     /**
      * Request delay in microseconds.
      * 0 means no delay.
-     *
-     * @var int
      */
-    private $requestDelay = 0;
+    private int $requestDelay = 0;
 
     /**
      * Maximum concurrent requests
      * that are being sent.
-     *
-     * @var int
      */
-    private $concurrency = 10;
+    private int $concurrency = 10;
 
     /**
      * Maximum depth Escargot
      * is going to crawl.
      * 0 means no limit.
-     *
-     * @var int
      */
-    private $maxDepth = 0;
+    private int $maxDepth = 0;
 
-    /**
-     * @var int
-     */
-    private $requestsSent = 0;
+    private int $requestsSent = 0;
 
-    /**
-     * @var array
-     */
-    private $runningRequests = [];
+    private array $runningRequests = [];
 
     /**
      * Keeps track of all the decisions
      * for all the subscribers for
      * every CrawlUri instance.
-     *
-     * @var array
      */
-    private $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
+    private array $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
 
     private \DateTimeImmutable $startTime;
 
-    private function __construct(QueueInterface $queue, string $jobId, BaseUriCollection $baseUris)
-    {
-        $this->queue = $queue;
-        $this->jobId = $jobId;
-        $this->baseUris = $baseUris;
-
+    private function __construct(
+        private readonly QueueInterface $queue,
+        private readonly string $jobId,
+        private readonly BaseUriCollection $baseUris,
+    ) {
         $this->clock = new NativeClock();
         $this->userAgent = self::DEFAULT_USER_AGENT;
     }
@@ -567,6 +521,7 @@ final class Escargot
      */
     private function prepareResponses(): array
     {
+        $response = null;
         $responses = [];
 
         $hasMaxRequestsReached = $this->isMaxRequestsReached();
@@ -622,7 +577,7 @@ final class Escargot
 
             // Request delay
             if (0 !== $this->requestDelay) {
-                $this->clock->sleep($this->requestDelay / 1000000);
+                $this->clock->sleep($this->requestDelay / 1_000_000);
             }
 
             try {
@@ -698,16 +653,11 @@ final class Escargot
                     continue;
                 }
 
-                switch (true) {
-                    case $exception instanceof TransportExceptionInterface:
-                        $subscriber->onTransportException($crawlUri, $exception, $response);
-                        break;
-                    case $exception instanceof HttpExceptionInterface:
-                        $subscriber->onHttpException($crawlUri, $exception, $response, $chunk);
-                        break;
-                    default:
-                        throw new \RuntimeException('Unknown exception type!');
-                }
+                match (true) {
+                    $exception instanceof TransportExceptionInterface => $subscriber->onTransportException($crawlUri, $exception, $response),
+                    $exception instanceof HttpExceptionInterface => $subscriber->onHttpException($crawlUri, $exception, $response, $chunk),
+                    default => throw new \RuntimeException('Unknown exception type!'),
+                };
             }
         }
 
