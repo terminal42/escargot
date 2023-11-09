@@ -239,19 +239,14 @@ final class DoctrineQueue implements QueueInterface
     {
         $table = $this->getTableSchema();
 
-        $schemaManager = method_exists($this->connection, 'createSchemaManager') ?
-            $this->connection->createSchemaManager() :
-            $this->connection->getSchemaManager()
-        ;
+        $schemaManager = $this->connection->createSchemaManager();
 
-        if (!$schemaManager->tablesExist($this->tableName)) {
+        if (!$schemaManager->tablesExist([$this->tableName])) {
             $queries = $this->connection->getDatabasePlatform()->getCreateTableSQL($table);
         } else {
-            $comparator = method_exists($schemaManager, 'createComparator') ?
-                $schemaManager->createComparator() :
-                new Comparator()
-            ;
-            $tableDiff = $comparator->diffTable($schemaManager->listTableDetails($this->tableName), $table);
+            $comparator = $schemaManager->createComparator();
+
+            $tableDiff = $comparator->compareTables($schemaManager->introspectTable($this->tableName), $table);
             $queries = $this->connection->getDatabasePlatform()->getAlterTableSQL($tableDiff);
         }
 
