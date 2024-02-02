@@ -335,7 +335,7 @@ class MyWebCrawler implements SubscriberInterface, EscargotAwareInterface
         }
     
         // Skip links that do not belong to our BaseUriCollection
-        if ($this->escargot->getBaseUris()->containsHost($crawlUri->getUri()->getHost())) {
+        if (!$this->escargot->getBaseUris()->containsHost($crawlUri->getUri()->getHost())) {
             return SubscriberInterface::DECISION_NEGATIVE;
         }
 
