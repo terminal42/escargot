@@ -21,17 +21,17 @@
         "nyholm/psr7": "^1.1",
         "psr/http-message": "^1.0 || ^2.0",
         "psr/log": "^1.1 || ^2.0 || ^3.0",
-        "symfony/clock": "^6.2",
-        "symfony/dom-crawler": "^5.4 || ^6.0",
-        "symfony/event-dispatcher": "^5.4 || ^6.0",
-        "symfony/http-client": "^5.4 || ^6.0",
+        "symfony/clock": "^6.2 || ^7.0",
+        "symfony/dom-crawler": "^5.4 || ^6.0 || ^7.0",
+        "symfony/event-dispatcher": "^5.4 || ^6.0 || ^7.0",
+        "symfony/http-client": "^5.4 || ^6.0 || ^7.0",
         "webignition/robots-txt-file": "^3.0"
     },
     "require-dev": {
         "doctrine/dbal": "^3.6",
         "fig/log-test": "^1.0",
-        "symfony/finder": "^5.4|| ^6.0",
-        "symfony/phpunit-bridge": "^5.4 || ^6.0",
+        "symfony/finder": "^5.4|| ^6.0 || ^7.0",
+        "symfony/phpunit-bridge": "^5.4 || ^6.0 || ^7.0",
         "terminal42/contao-build-tools": "@dev"
     },
     "config": {
