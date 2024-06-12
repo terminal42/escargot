@@ -279,7 +279,7 @@ class EscargotTest extends TestCase
         $this->assertSame($expectedRequests, $filteredRequests, $message);
     }
 
-    public function crawlProvider(): \Generator
+    public static function crawlProvider(): iterable
     {
         $finder = new Finder();
         $finder->in([__DIR__.'/Fixtures'])->directories()->sortByName(true);

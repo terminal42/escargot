@@ -31,7 +31,7 @@ class UtilTest extends TestCase
         $this->assertSame($expected, Util::isAllowedToFollow($crawlUri, $escargot));
     }
 
-    public function isAllowedToFollowProvider(): \Generator
+    public function isAllowedToFollowProvider(): iterable
     {
         yield 'Found on an URI that should not be followed according to the x-robots-tag header or <meta name="robots"> information' => [
             new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')),
