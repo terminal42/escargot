@@ -592,6 +592,7 @@ final class Escargot
 
                 // Mark the response as started
                 $this->startRequest($response);
+                $hasMaxRequestsReached = $this->isMaxRequestsReached();
             } catch (TransportExceptionInterface $exception) {
                 $this->handleException($exception, $crawlUri, $response);
             }
