@@ -2,14 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- * Escargot
- *
- * @copyright  Copyright (c) 2019 - 2023, terminal42 gmbh
- * @author     terminal42 gmbh <info@terminal42.ch>
- * @license    MIT
- */
-
 namespace Terminal42\Escargot\Tests\Queue;
 
 use Nyholm\Psr7\Uri;
@@ -18,7 +10,7 @@ use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Queue\QueueInterface;
 
-abstract class AbstractQueueTest extends TestCase
+abstract class AbstractQueueTestCase extends TestCase
 {
     abstract public function getQueue(): QueueInterface;
 

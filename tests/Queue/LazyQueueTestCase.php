@@ -2,25 +2,18 @@
 
 declare(strict_types=1);
 
-/*
- * Escargot
- *
- * @copyright  Copyright (c) 2019 - 2023, terminal42 gmbh
- * @author     terminal42 gmbh <info@terminal42.ch>
- * @license    MIT
- */
-
 namespace Terminal42\Escargot\Tests\Queue;
 
 use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Schema\DefaultSchemaManagerFactory;
-use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Tools\DsnParser;
 use Terminal42\Escargot\Queue\DoctrineQueue;
+use Terminal42\Escargot\Queue\InMemoryQueue;
+use Terminal42\Escargot\Queue\LazyQueue;
 use Terminal42\Escargot\Queue\QueueInterface;
 
-class DoctrineQueueTest extends AbstractQueueTest
+class LazyQueueTestCase extends AbstractQueueTestCase
 {
     private DoctrineQueue $queue;
 
@@ -40,11 +33,6 @@ class DoctrineQueueTest extends AbstractQueueTest
 
     public function getQueue(): QueueInterface
     {
-        return $this->queue;
-    }
-
-    public function testGetTableSchema(): void
-    {
-        $this->assertInstanceOf(Table::class, $this->queue->getTableSchema());
+        return new LazyQueue(new InMemoryQueue(), $this->queue);
     }
 }

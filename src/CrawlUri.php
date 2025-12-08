@@ -39,7 +39,7 @@ final class CrawlUri implements \Stringable
 
     public function __toString(): string
     {
-        return sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s, Tags: %s)',
+        return \sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s, Tags: %s)',
             (string) $this->getUri(),
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',

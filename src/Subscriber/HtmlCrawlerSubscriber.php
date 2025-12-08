@@ -2,14 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- * Escargot
- *
- * @copyright  Copyright (c) 2019 - 2023, terminal42 gmbh
- * @author     terminal42 gmbh <info@terminal42.ch>
- * @license    MIT
- */
-
 namespace Terminal42\Escargot\Subscriber;
 
 use Psr\Log\LoggerAwareInterface;
@@ -88,7 +80,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
             $this->logWithCrawlUri(
                 $crawlUri,
                 LogLevel::DEBUG,
-                sprintf(
+                \sprintf(
                     'Could not add "%s" to the queue because the link is invalid.',
                     $uri,
                 ),
@@ -104,7 +96,7 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
             $this->logWithCrawlUri(
                 $crawlUri,
                 LogLevel::DEBUG,
-                sprintf(
+                \sprintf(
                     'Did not add "%s" to the queue because it was marked as "data-escargot-ignore".',
                     $uri,
                 ),
@@ -119,8 +111,8 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
         // Add all data attributes as tags for e.g. other subscribers
         if ($node->hasAttributes()) {
             foreach ($node->attributes as $attribute) {
-                if (str_starts_with((string) $attribute->name, 'data-')) {
-                    $newCrawlUri->addTag(substr((string) $attribute->name, 5));
+                if (str_starts_with($attribute->name, 'data-')) {
+                    $newCrawlUri->addTag(substr($attribute->name, 5));
                 }
             }
         }
