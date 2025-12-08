@@ -282,7 +282,7 @@ final class Escargot
     public static function createFromJobId(string $jobId, QueueInterface $queue): self
     {
         if (!$queue->isJobIdValid($jobId)) {
-            throw new InvalidJobIdException(sprintf('Job ID "%s" is invalid!', $jobId));
+            throw new InvalidJobIdException(\sprintf('Job ID "%s" is invalid!', $jobId));
         }
 
         return new self(
@@ -323,7 +323,7 @@ final class Escargot
 
         $this->log(
             LogLevel::DEBUG,
-            sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()),
+            \sprintf('Finished crawling! Sent %d request(s).', $this->getRequestsSent()),
         );
 
         foreach ($this->subscribers as $subscriber) {
@@ -603,12 +603,12 @@ final class Escargot
 
     private function storeDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber, string $decision): void
     {
-        $this->decisionMap[$key][(string) $crawlUri->getUri().$subscriber::class] = $decision;
+        $this->decisionMap[$key][$crawlUri->getUri().$subscriber::class] = $decision;
     }
 
     private function getDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber): string
     {
-        return $this->decisionMap[$key][(string) $crawlUri->getUri().$subscriber::class] ?? SubscriberInterface::DECISION_ABSTAIN;
+        return $this->decisionMap[$key][$crawlUri->getUri().$subscriber::class] ?? SubscriberInterface::DECISION_ABSTAIN;
     }
 
     private function isMaxRequestsReached(): bool
@@ -635,7 +635,7 @@ final class Escargot
         // Log the exception
         $this->log(
             LogLevel::DEBUG,
-            sprintf('Exception of type "%s" occurred: %s', $exception::class, $exception->getMessage()),
+            \sprintf('Exception of type "%s" occurred: %s', $exception::class, $exception->getMessage()),
             $crawlUri,
         );
 

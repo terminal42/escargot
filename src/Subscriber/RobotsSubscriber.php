@@ -154,7 +154,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
             $this->logWithCrawlUri(
                 $crawlUri,
                 LogLevel::DEBUG,
-                sprintf(
+                \sprintf(
                     'Added the "%s" tag because of the robots.txt content.',
                     self::TAG_DISALLOWED_ROBOTS_TXT,
                 ),
@@ -213,7 +213,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
                 $this->logWithCrawlUri(
                     $crawlUri,
                     LogLevel::DEBUG,
-                    sprintf(
+                    \sprintf(
                         'Could not add sitemap URI "%s" to the queue because the URI is invalid.',
                         $directive->getValue()->get(),
                     ),
@@ -262,7 +262,7 @@ final class RobotsSubscriber implements SubscriberInterface, EscargotAwareInterf
                 $this->logWithCrawlUri(
                     $sitemapUri,
                     LogLevel::DEBUG,
-                    sprintf(
+                    \sprintf(
                         'Could not add URI "%s" found on in the sitemap to the queue because the URI is invalid.',
                         (string) $url->loc,
                     ),

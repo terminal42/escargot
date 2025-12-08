@@ -2,17 +2,10 @@
 
 declare(strict_types=1);
 
-/*
- * Escargot
- *
- * @copyright  Copyright (c) 2019 - 2023, terminal42 gmbh
- * @author     terminal42 gmbh <info@terminal42.ch>
- * @license    MIT
- */
-
 namespace Terminal42\Escargot\Tests;
 
 use Nyholm\Psr7\Uri;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
@@ -208,7 +201,7 @@ class EscargotTest extends TestCase
             static function ($method, $url) use ($clock, $mockResponse) {
                 $clock->sleep(1); // Mock the request that takes a second to complete
 
-                return MockResponseFactory::createFromString(sprintf($mockResponse, uniqid()));
+                return MockResponseFactory::createFromString(\sprintf($mockResponse, uniqid()));
             },
         );
         $logger = new TestLogger();
@@ -234,9 +227,7 @@ class EscargotTest extends TestCase
         );
     }
 
-    /**
-     * @dataProvider crawlProvider
-     */
+    #[DataProvider('crawlProvider')]
     public function testCrawlAsWebCrawler(\Closure $responseFactory, array $expectedLogs, array $expectedRequests, string $message, $options = []): void
     {
         $baseUris = new BaseUriCollection();
@@ -274,7 +265,7 @@ class EscargotTest extends TestCase
 
         $this->assertSame($expectedLogs, $filteredLogs, $message);
 
-        $filteredRequests = array_map(static fn (CrawlUri $crawlUri) => sprintf('Successful request! %s.', (string) $crawlUri), $indexerSubscriber->getUris());
+        $filteredRequests = array_map(static fn (CrawlUri $crawlUri) => \sprintf('Successful request! %s.', (string) $crawlUri), $indexerSubscriber->getUris());
 
         $this->assertSame($expectedRequests, $filteredRequests, $message);
     }
@@ -302,11 +293,11 @@ class EscargotTest extends TestCase
                 $message = $record['message'];
 
                 if (isset($record['context']['crawlUri'])) {
-                    $message = sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
+                    $message = \sprintf('[%s] %s', (string) $record['context']['crawlUri'], $message);
                 }
 
                 if (isset($record['context']['source'])) {
-                    $message = sprintf('[%s] %s', $record['context']['source'], $message);
+                    $message = \sprintf('[%s] %s', $record['context']['source'], $message);
                 }
 
                 return $message;

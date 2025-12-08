@@ -2,17 +2,10 @@
 
 declare(strict_types=1);
 
-/*
- * Escargot
- *
- * @copyright  Copyright (c) 2019 - 2023, terminal42 gmbh
- * @author     terminal42 gmbh <info@terminal42.ch>
- * @license    MIT
- */
-
 namespace Terminal42\Escargot\Tests\Subscriber;
 
 use Nyholm\Psr7\Uri;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
@@ -23,19 +16,17 @@ use Terminal42\Escargot\Subscriber\Util;
 
 class UtilTest extends TestCase
 {
-    /**
-     * @dataProvider isAllowedToFollowProvider
-     */
+    #[DataProvider('isAllowedToFollowProvider')]
     public function testIsAllowedToFollow(CrawlUri $crawlUri, Escargot $escargot, bool $expected): void
     {
         $this->assertSame($expected, Util::isAllowedToFollow($crawlUri, $escargot));
     }
 
-    public function isAllowedToFollowProvider(): iterable
+    public static function isAllowedToFollowProvider(): iterable
     {
         yield 'Found on an URI that should not be followed according to the x-robots-tag header or <meta name="robots"> information' => [
             new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')),
-            $this->createEscargotWithFoundOnUri(
+            self::createEscargotWithFoundOnUri(
                 (new CrawlUri(new Uri('https://www.terminal42.ch'), 0, true))->addTag(RobotsSubscriber::TAG_NOFOLLOW),
             ),
             false,
@@ -43,26 +34,26 @@ class UtilTest extends TestCase
 
         yield 'Current URI was disallowed by robots.txt' => [
             (new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')))->addTag(RobotsSubscriber::TAG_DISALLOWED_ROBOTS_TXT),
-            $this->createEscargot(),
+            static::createEscargot(),
             false,
         ];
 
         yield 'Current URI can be followed' => [
             new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')),
-            $this->createEscargot(),
+            static::createEscargot(),
             true,
         ];
     }
 
-    private function createEscargotWithFoundOnUri(CrawlUri $foundOn): Escargot
+    private static function createEscargotWithFoundOnUri(CrawlUri $foundOn): Escargot
     {
-        $escargot = $this->createEscargot();
+        $escargot = self::createEscargot();
         $escargot->getQueue()->add($escargot->getJobId(), $foundOn);
 
         return $escargot;
     }
 
-    private function createEscargot(): Escargot
+    private static function createEscargot(): Escargot
     {
         return Escargot::create(new BaseUriCollection([new Uri('https://www.terminal42.ch')]), new InMemoryQueue());
     }
