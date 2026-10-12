@@ -31,7 +31,7 @@
     "require-dev": {
         "doctrine/dbal": "^3.10 || ^4.0",
         "fig/log-test": "^1.0",
-        "phpunit/phpunit": "^10.5.60",
+        "phpunit/phpunit": "^10.5.60 || ^11.5 || ^12.5 || ^13.0",
         "symfony/finder": "^5.4|| ^6.0 || ^7.0 || ^8.0",
         "terminal42/contao-build-tools": "@dev"
     },
