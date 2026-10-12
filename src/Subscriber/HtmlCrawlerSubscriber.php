@@ -62,8 +62,9 @@ final class HtmlCrawlerSubscriber implements SubscriberInterface, EscargotAwareI
 
         // Canonical
         $canonicalCrawler = $crawler->filterXPath('descendant-or-self::head/descendant-or-self::*/link[@rel = \'canonical\'][@href]');
-        if ($canonicalCrawler->count()) {
-            $this->addNewUriToQueueFromNode($crawlUri, $canonicalCrawler->first()->attr('href'), $canonicalCrawler->first()->getNode(0));
+        $canonicalNode = $canonicalCrawler->getNode(0);
+        if ($canonicalNode instanceof \DOMElement) {
+            $this->addNewUriToQueueFromNode($crawlUri, $canonicalNode->getAttribute('href'), $canonicalNode);
         }
     }
 

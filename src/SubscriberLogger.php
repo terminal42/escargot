@@ -28,6 +28,9 @@ class SubscriberLogger extends AbstractLogger
         $this->log($level, $message, ['crawlUri' => $crawlUri]);
     }
 
+    /**
+     * @param string|\Stringable $message
+     */
     public function log($level, $message, array $context = []): void
     {
         $context = array_merge($context, ['source' => $this->subscriberClass]);

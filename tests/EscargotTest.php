@@ -8,10 +8,7 @@ use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerAwareInterface;
-use Psr\Log\LoggerAwareTrait;
 use Psr\Log\LoggerInterface;
-use Psr\Log\LogLevel;
 use Psr\Log\Test\TestLogger;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Finder\Finder;
@@ -21,13 +18,10 @@ use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\ChunkInterface;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\BaseUriCollection;
 use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
-use Terminal42\Escargot\EscargotAwareInterface;
-use Terminal42\Escargot\EscargotAwareTrait;
 use Terminal42\Escargot\Exception\ClientAlreadyCustomizedException;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Subscriber\ExceptionSubscriberInterface;
@@ -36,7 +30,8 @@ use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 use Terminal42\Escargot\Subscriber\SubscriberInterface;
 use Terminal42\Escargot\Subscriber\TagValueResolvingSubscriberInterface;
 use Terminal42\Escargot\SubscriberLogger;
-use Terminal42\Escargot\SubscriberLoggerTrait;
+use Terminal42\Escargot\Tests\Fixture\AbstractCompleteSubscriber;
+use Terminal42\Escargot\Tests\Fixture\SearchIndexSubscriber;
 use Terminal42\Escargot\Tests\Scenario\MockResponseFactory;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
 
@@ -51,7 +46,6 @@ class EscargotTest extends TestCase
         $escargot = Escargot::create($baseUris, $queue);
 
         $this->assertInstanceOf(InMemoryQueue::class, $escargot->getQueue());
-        $this->assertInstanceOf(HttpClientInterface::class, $escargot->getClient());
 
         $this->assertNotEmpty($escargot->getJobId());
         $this->assertSame(0, $escargot->getMaxRequests());
@@ -68,7 +62,7 @@ class EscargotTest extends TestCase
 
         $escargot = Escargot::create($baseUris, $queue);
 
-        $subscriber = $this->createMock(CompleteSubscriber::class);
+        $subscriber = $this->createMock(AbstractCompleteSubscriber::class);
         $subscriber
             ->expects($this->exactly(5))
             ->method('setEscargot')
@@ -79,7 +73,7 @@ class EscargotTest extends TestCase
             ->method('setLogger')
             ->with($this->callback(
                 // Must be decorated
-                static fn (LoggerInterface $logger) => $logger instanceof SubscriberLogger,
+                static fn (LoggerInterface $logger): bool => $logger instanceof SubscriberLogger,
             ))
         ;
 
@@ -220,7 +214,7 @@ class EscargotTest extends TestCase
         ;
 
         $escargot->addSubscriber(new HtmlCrawlerSubscriber());
-        $escargot->addSubscriber($this->getSearchIndexSubscriber());
+        $escargot->addSubscriber(new SearchIndexSubscriber());
 
         $escargot->crawl();
 
@@ -233,8 +227,14 @@ class EscargotTest extends TestCase
         );
     }
 
+    /**
+     * @param \Closure(string, string, array<string, mixed>): MockResponse $responseFactory
+     * @param array<string>                                                $expectedLogs
+     * @param array<string>                                                $expectedRequests
+     * @param array<string, string>                                        $options
+     */
     #[DataProvider('crawlProvider')]
-    public function testCrawlAsWebCrawler(\Closure $responseFactory, array $expectedLogs, array $expectedRequests, string $message, $options = []): void
+    public function testCrawlAsWebCrawler(\Closure $responseFactory, array $expectedLogs, array $expectedRequests, string $message, array $options = []): void
     {
         $baseUris = new BaseUriCollection();
         $baseUris->add(new Uri('https://www.terminal42.ch'));
@@ -244,7 +244,7 @@ class EscargotTest extends TestCase
         $escargot = Escargot::create($baseUris, $queue);
         $escargot = $escargot->withHttpClient(new MockHttpClient($responseFactory));
 
-        if (0 !== (is_countable($options) ? \count($options) : 0)) {
+        if (0 !== \count($options)) {
             if (\array_key_exists('max_requests', $options)) {
                 $escargot = $escargot->withMaxRequests((int) $options['max_requests']);
             }
@@ -262,7 +262,7 @@ class EscargotTest extends TestCase
         $escargot->addSubscriber(new HtmlCrawlerSubscriber());
 
         // We also add a subscriber that shall request the crawl URIs that match the BaseUriCollection.
-        $indexerSubscriber = $this->getSearchIndexSubscriber();
+        $indexerSubscriber = new SearchIndexSubscriber();
         $escargot->addSubscriber($indexerSubscriber);
 
         $escargot->crawl();
@@ -276,6 +276,9 @@ class EscargotTest extends TestCase
         $this->assertSame($expectedRequests, $filteredRequests, $message);
     }
 
+    /**
+     * @return iterable<array{\Closure(string, string, array<string, mixed>): MockResponse, array<string>, array<string>, string, array<string, string>}>
+     */
     public static function crawlProvider(): iterable
     {
         $finder = new Finder();
@@ -434,6 +437,9 @@ class EscargotTest extends TestCase
         $this->assertSame(1, $escargot->getRequestsSent());
     }
 
+    /**
+     * @return array<string>
+     */
     private function cleanLogs(TestLogger $testLogger): array
     {
         return array_map(
@@ -452,87 +458,6 @@ class EscargotTest extends TestCase
             },
             $testLogger->records,
         );
-    }
-
-    private function getSearchIndexSubscriber(): SubscriberInterface
-    {
-        return new class() implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface {
-            use EscargotAwareTrait;
-            use LoggerAwareTrait;
-            use SubscriberLoggerTrait;
-
-            private array $uris = [];
-
-            public function getUris(): array
-            {
-                return $this->uris;
-            }
-
-            public function shouldRequest(CrawlUri $crawlUri): string
-            {
-                // Check the original crawlUri to see if that one contained nofollow information
-                if (null !== $crawlUri->getFoundOn() && ($originalCrawlUri = $this->escargot->getCrawlUri($crawlUri->getFoundOn()))) {
-                    if ($originalCrawlUri->hasTag(RobotsSubscriber::TAG_NOFOLLOW)) {
-                        $this->logWithCrawlUri(
-                            $crawlUri,
-                            LogLevel::DEBUG,
-                            'Do not request because when the crawl URI was found, the robots information disallowed following this URI.',
-                        );
-
-                        return SubscriberInterface::DECISION_NEGATIVE;
-                    }
-                }
-
-                // Skip the links that are disallowed by robots.txt
-                if ($crawlUri->hasTag(RobotsSubscriber::TAG_DISALLOWED_ROBOTS_TXT)) {
-                    $this->logWithCrawlUri(
-                        $crawlUri,
-                        LogLevel::DEBUG,
-                        'Do not request because it was disallowed by the robots.txt.',
-                    );
-
-                    return SubscriberInterface::DECISION_NEGATIVE;
-                }
-
-                // Skip rel="nofollow" links
-                if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_REL_NOFOLLOW)) {
-                    $this->logWithCrawlUri(
-                        $crawlUri,
-                        LogLevel::DEBUG,
-                        'Do not request because when the crawl URI was found, the "rel" attribute contained "nofollow".',
-                    );
-
-                    return SubscriberInterface::DECISION_NEGATIVE;
-                }
-
-                // Skip the links that have the "type" attribute set and it's not text/html
-                if ($crawlUri->hasTag(HtmlCrawlerSubscriber::TAG_NO_TEXT_HTML_TYPE)) {
-                    $this->logWithCrawlUri(
-                        $crawlUri,
-                        LogLevel::DEBUG,
-                        'Do not request because when the crawl URI was found, the "type" attribute was present and did not contain "text/html".',
-                    );
-
-                    return SubscriberInterface::DECISION_NEGATIVE;
-                }
-
-                if ($this->escargot->getBaseUris()->containsHost($crawlUri->getUri()->getHost())) {
-                    return SubscriberInterface::DECISION_POSITIVE;
-                }
-
-                return SubscriberInterface::DECISION_ABSTAIN;
-            }
-
-            public function needsContent(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): string
-            {
-                return SubscriberInterface::DECISION_POSITIVE;
-            }
-
-            public function onLastChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): void
-            {
-                $this->uris[] = $crawlUri;
-            }
-        };
     }
 
     private function createInterestedSubscriber(TransportException $exception, int $successfulRequests): SubscriberInterface
@@ -588,8 +513,4 @@ class EscargotTest extends TestCase
 
         return $subscriber;
     }
-}
-
-abstract class CompleteSubscriber implements SubscriberInterface, EscargotAwareInterface, LoggerAwareInterface
-{
 }

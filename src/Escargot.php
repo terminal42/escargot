@@ -79,12 +79,17 @@ final class Escargot
 
     private int $requestsSent = 0;
 
+    /**
+     * @var array<string, true>
+     */
     private array $runningRequests = [];
 
     /**
      * Keeps track of all the decisions
      * for all the subscribers for
      * every CrawlUri instance.
+     *
+     * @var array<string, array<string, string>>
      */
     private array $decisionMap = ['shouldRequest' => [], 'needsContent' => []];
 

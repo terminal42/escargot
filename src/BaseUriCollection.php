@@ -6,6 +6,9 @@ namespace Terminal42\Escargot;
 
 use Psr\Http\Message\UriInterface;
 
+/**
+ * @implements \IteratorAggregate<int, UriInterface>
+ */
 final class BaseUriCollection implements \IteratorAggregate, \Countable
 {
     /**
@@ -72,6 +75,9 @@ final class BaseUriCollection implements \IteratorAggregate, \Countable
         return array_values($this->baseUris);
     }
 
+    /**
+     * @return \Traversable<int, UriInterface>
+     */
     public function getIterator(): \Traversable
     {
         return new \ArrayIterator($this->all());

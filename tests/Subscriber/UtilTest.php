@@ -22,6 +22,9 @@ class UtilTest extends TestCase
         $this->assertSame($expected, Util::isAllowedToFollow($crawlUri, $escargot));
     }
 
+    /**
+     * @return iterable<array{CrawlUri, Escargot, bool}>
+     */
     public static function isAllowedToFollowProvider(): iterable
     {
         yield 'Found on an URI that should not be followed according to the x-robots-tag header or <meta name="robots"> information' => [
@@ -34,13 +37,13 @@ class UtilTest extends TestCase
 
         yield 'Current URI was disallowed by robots.txt' => [
             (new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')))->addTag(RobotsSubscriber::TAG_DISALLOWED_ROBOTS_TXT),
-            static::createEscargot(),
+            self::createEscargot(),
             false,
         ];
 
         yield 'Current URI can be followed' => [
             new CrawlUri(new Uri('https://www.terminal42.ch/foobar'), 1, false, new Uri('https://www.terminal42.ch')),
-            static::createEscargot(),
+            self::createEscargot(),
             true,
         ];
     }

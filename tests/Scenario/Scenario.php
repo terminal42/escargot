@@ -5,15 +5,28 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Tests\Scenario;
 
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\HttpClient\Response\MockResponse;
 
 class Scenario
 {
+    /**
+     * @var array<string, MockResponse>|null
+     */
     private array|null $responses = null;
 
+    /**
+     * @var array<string>
+     */
     private array $requests = [];
 
+    /**
+     * @var array<string>
+     */
     private array $logs = [];
 
+    /**
+     * @var array<string, string>
+     */
     private array $options = [];
 
     private string $description = 'No scenario description given';
@@ -33,6 +46,9 @@ class Scenario
         return $this->name;
     }
 
+    /**
+     * @return array{\Closure(string, string, array<string, mixed>): MockResponse, array<string>, array<string>, string, array<string, string>}
+     */
     public function getArgumentsForCrawlProvider(): array
     {
         return [
@@ -90,11 +106,11 @@ class Scenario
     }
 
     /**
-     * @return array
+     * @return \Closure(string, string, array<string, mixed>): MockResponse
      */
     private function getResponsesFactory(): \Closure
     {
-        return function ($method, $url, $options) {
+        return function (string $method, string $url, array $options): MockResponse {
             if (!isset($this->responses[$url])) {
                 throw new \RuntimeException(\sprintf('A request to URI "%s" would be executed but no MockResponse was provided!', $url));
             }
