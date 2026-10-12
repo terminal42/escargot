@@ -14,6 +14,9 @@ final class CrawlUri implements \Stringable
 
     private UriInterface|null $foundOn = null;
 
+    /**
+     * @var array<array-key, true>
+     */
     private array $tags = [];
 
     public function __construct(
@@ -73,6 +76,9 @@ final class CrawlUri implements \Stringable
         return $this->foundOn;
     }
 
+    /**
+     * @return list<array-key>
+     */
     public function getTags(): array
     {
         return array_keys($this->tags);

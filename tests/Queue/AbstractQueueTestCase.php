@@ -94,8 +94,6 @@ abstract class AbstractQueueTestCase extends TestCase
         $this->assertTrue($queue->getBaseUris($jobId)->contains($baseUri));
 
         // Test the getAll()
-        $this->assertInstanceOf(\Generator::class, $queue->getAll($jobId));
-
         $all = iterator_to_array($queue->getAll($jobId));
 
         $this->assertInstanceOf(CrawlUri::class, $all[0]);
@@ -126,7 +124,6 @@ abstract class AbstractQueueTestCase extends TestCase
         $queue = $this->getQueue();
         $jobId = $queue->createJobId(new BaseUriCollection());
 
-        $this->assertInstanceOf(\Generator::class, $queue->getAll($jobId));
         $this->assertCount(0, iterator_to_array($queue->getAll($jobId)));
     }
 }

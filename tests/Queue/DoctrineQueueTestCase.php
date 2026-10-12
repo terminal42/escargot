@@ -7,7 +7,6 @@ namespace Terminal42\Escargot\Tests\Queue;
 use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Schema\DefaultSchemaManagerFactory;
-use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Tools\DsnParser;
 use Terminal42\Escargot\Queue\DoctrineQueue;
 use Terminal42\Escargot\Queue\QueueInterface;
@@ -37,6 +36,9 @@ class DoctrineQueueTestCase extends AbstractQueueTestCase
 
     public function testGetTableSchema(): void
     {
-        $this->assertInstanceOf(Table::class, $this->queue->getTableSchema());
+        $table = $this->queue->getTableSchema();
+
+        $this->assertSame('escargot', $table->getName());
+        $this->assertSame(['id'], $table->getPrimaryKey()?->getColumns());
     }
 }

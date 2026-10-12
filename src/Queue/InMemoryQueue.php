@@ -11,7 +11,7 @@ use Terminal42\Escargot\CrawlUri;
 final class InMemoryQueue implements QueueInterface
 {
     /**
-     * @var array<string, array<UriInterface>>
+     * @var array<string, BaseUriCollection>
      */
     private array $baseUris = [];
 
