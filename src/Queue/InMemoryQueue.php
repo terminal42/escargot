@@ -56,9 +56,7 @@ final class InMemoryQueue implements QueueInterface
 
     public function add(string $jobId, CrawlUri $crawlUri): void
     {
-        if (!isset($this->queue[$jobId])) {
-            $this->queue[$jobId] = [];
-        }
+        $this->queue[$jobId] ??= [];
 
         $this->queue[$jobId][(string) $crawlUri->getUri()] = $crawlUri;
     }

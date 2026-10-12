@@ -35,7 +35,7 @@ use Terminal42\Escargot\Tests\Fixture\SearchIndexSubscriber;
 use Terminal42\Escargot\Tests\Scenario\MockResponseFactory;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
 
-class EscargotTest extends TestCase
+final class EscargotTest extends TestCase
 {
     public function testDefaults(): void
     {

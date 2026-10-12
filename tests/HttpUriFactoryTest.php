@@ -7,7 +7,7 @@ namespace Terminal42\Escargot\Tests;
 use PHPUnit\Framework\TestCase;
 use Terminal42\Escargot\HttpUriFactory;
 
-class HttpUriFactoryTest extends TestCase
+final class HttpUriFactoryTest extends TestCase
 {
     public function testThrowsOnInvalidHttpUri(): void
     {

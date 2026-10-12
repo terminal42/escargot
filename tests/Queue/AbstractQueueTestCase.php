@@ -40,9 +40,9 @@ abstract class AbstractQueueTestCase extends TestCase
         $queue = $this->getQueue();
         $jobId = $queue->createJobId($baseUris);
 
-        $this->assertNotNull($queue->get($jobId, $baseCrawlUri->getUri()));
+        $this->assertInstanceOf(CrawlUri::class, $queue->get($jobId, $baseCrawlUri->getUri()));
         $this->assertFalse($baseCrawlUri->isProcessed());
-        $this->assertNotNull($queue->getNext($jobId));
+        $this->assertInstanceOf(CrawlUri::class, $queue->getNext($jobId));
         $this->assertSame(2, $queue->countAll($jobId));
         $this->assertSame(2, $queue->countPending($jobId));
 
@@ -65,7 +65,7 @@ abstract class AbstractQueueTestCase extends TestCase
 
         $baseCrawlUriFromQueue = $queue->get($jobId, $baseCrawlUri->getUri());
 
-        $this->assertNotNull($baseCrawlUriFromQueue);
+        $this->assertInstanceOf(CrawlUri::class, $baseCrawlUriFromQueue);
         $this->assertTrue($baseCrawlUriFromQueue->isProcessed());
         $this->assertTrue($baseCrawlUriFromQueue->hasTag('test-1'));
         $this->assertTrue($baseCrawlUriFromQueue->hasTag('test-2'));

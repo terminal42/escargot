@@ -8,7 +8,7 @@ use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\TestCase;
 use Terminal42\Escargot\BaseUriCollection;
 
-class BaseUriCollectionTest extends TestCase
+final class BaseUriCollectionTest extends TestCase
 {
     public function testAddingUris(): void
     {

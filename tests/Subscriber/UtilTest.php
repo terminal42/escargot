@@ -14,7 +14,7 @@ use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 use Terminal42\Escargot\Subscriber\Util;
 
-class UtilTest extends TestCase
+final class UtilTest extends TestCase
 {
     #[DataProvider('isAllowedToFollowProvider')]
     public function testIsAllowedToFollow(CrawlUri $crawlUri, Escargot $escargot, bool $expected): void

@@ -239,9 +239,7 @@ final class Escargot
 
     public function getClient(): HttpClientInterface
     {
-        if (null === $this->client) {
-            $this->client = HttpClient::create(['headers' => ['User-Agent' => $this->getUserAgent()]]);
-        }
+        $this->client ??= HttpClient::create(['headers' => ['User-Agent' => $this->getUserAgent()]]);
 
         return $this->client;
     }
