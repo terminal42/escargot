@@ -8,7 +8,6 @@ use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\LoggerInterface;
 use Psr\Log\Test\TestLogger;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Finder\Finder;
@@ -16,6 +15,7 @@ use Symfony\Component\HttpClient\Exception\TransportException;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\ChunkInterface;
+use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
@@ -71,10 +71,10 @@ final class EscargotTest extends TestCase
         $subscriber
             ->expects($this->once())
             ->method('setLogger')
-            ->with($this->callback(
+            ->with(
                 // Must be decorated
-                static fn (LoggerInterface $logger): bool => $logger instanceof SubscriberLogger,
-            ))
+                $this->isInstanceOf(SubscriberLogger::class),
+            )
         ;
 
         $escargot->addSubscriber($subscriber);
@@ -351,35 +351,7 @@ final class EscargotTest extends TestCase
         $escargot = Escargot::create(new BaseUriCollection([new Uri('https://example.com/')]), new InMemoryQueue())
             ->withHttpClient(new MockHttpClient($response))
         ;
-        /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
-        $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
-        $subscriber
-            ->expects($this->once())
-            ->method('shouldRequest')
-            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
-        ;
-
-        $subscriber
-            ->expects($transportFailure ? $this->once() : $this->never())
-            ->method('needsContent')
-            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
-        ;
-
-        $subscriber
-            ->expects($this->once())
-            ->method($transportFailure ? 'onTransportException' : 'onHttpException')
-            ->with(
-                $this->isInstanceOf(CrawlUri::class),
-                $this->isInstanceOf($transportFailure ? TransportExceptionInterface::class : HttpExceptionInterface::class),
-                $this->callback(static fn (ResponseInterface $response): bool => 'https://example.com/' === $response->getInfo('url')
-                    && false === $response->getInfo('canceled')),
-            )
-        ;
-
-        $subscriber
-            ->expects($this->never())
-            ->method($transportFailure ? 'onHttpException' : 'onTransportException')
-        ;
+        $subscriber = $this->createResponseFailureSubscriber($transportFailure);
         $escargot->addSubscriber($subscriber);
 
         $escargot->crawl();
@@ -425,11 +397,13 @@ final class EscargotTest extends TestCase
         $subscriber
             ->expects($this->once())
             ->method('onHttpException')
-            ->with(
-                $this->callback(static fn (CrawlUri $crawlUri): bool => 'https://example.com/crawled' === (string) $crawlUri->getUri()),
-                $this->callback(static fn (HttpExceptionInterface $exception): bool => $auxiliaryResponse === $exception->getResponse()),
-                $this->callback(static fn (ResponseInterface $response): bool => 'https://example.com/crawled' === $response->getInfo('url')
-                    && 'https://example.com/crawled' === (string) $response->getInfo('user_data')->getUri()),
+            ->willReturnCallback(
+                function (CrawlUri $crawlUri, HttpExceptionInterface $exception, ResponseInterface $response) use ($auxiliaryResponse): void {
+                    $this->assertSame('https://example.com/crawled', (string) $crawlUri->getUri());
+                    $this->assertSame($auxiliaryResponse, $exception->getResponse());
+                    $this->assertSame('https://example.com/crawled', $response->getInfo('url'));
+                    $this->assertSame('https://example.com/crawled', (string) $response->getInfo('user_data')->getUri());
+                },
             )
         ;
         $escargot->addSubscriber($subscriber);
@@ -462,6 +436,45 @@ final class EscargotTest extends TestCase
         );
     }
 
+    private function createResponseFailureSubscriber(bool $transportFailure): SubscriberInterface
+    {
+        /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
+        $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
+        $subscriber
+            ->expects($this->once())
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->expects($transportFailure ? $this->once() : $this->never())
+            ->method('needsContent')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->expects($this->once())
+            ->method($transportFailure ? 'onTransportException' : 'onHttpException')
+            ->with(
+                $this->isInstanceOf(CrawlUri::class),
+                $this->isInstanceOf($transportFailure ? TransportExceptionInterface::class : HttpExceptionInterface::class),
+            )
+            ->willReturnCallback(
+                function (CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response): void {
+                    $this->assertSame('https://example.com/', $response->getInfo('url'));
+                    $this->assertFalse($response->getInfo('canceled'));
+                },
+            )
+        ;
+
+        $subscriber
+            ->expects($this->never())
+            ->method($transportFailure ? 'onHttpException' : 'onTransportException')
+        ;
+
+        return $subscriber;
+    }
+
     private function createInterestedSubscriber(TransportException $exception, int $successfulRequests): SubscriberInterface
     {
         /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
@@ -489,10 +502,12 @@ final class EscargotTest extends TestCase
         $subscriber
             ->expects($this->once())
             ->method('onTransportException')
-            ->with(
-                $this->callback(static fn (CrawlUri $crawlUri): bool => 'https://example.com/failure' === (string) $crawlUri->getUri()),
-                $exception,
-                null,
+            ->willReturnCallback(
+                function (CrawlUri $crawlUri, TransportExceptionInterface $actualException, ResponseInterface|null $response) use ($exception): void {
+                    $this->assertSame('https://example.com/failure', (string) $crawlUri->getUri());
+                    $this->assertSame($exception, $actualException);
+                    $this->assertNull($response);
+                },
             )
         ;
 
