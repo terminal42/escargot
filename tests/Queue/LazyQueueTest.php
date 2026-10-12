@@ -13,7 +13,7 @@ use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Queue\LazyQueue;
 use Terminal42\Escargot\Queue\QueueInterface;
 
-class LazyQueueTestCase extends AbstractQueueTestCase
+class LazyQueueTest extends AbstractQueueTestCase
 {
     private DoctrineQueue $queue;
 
