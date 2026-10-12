@@ -10,9 +10,11 @@ on:
     schedule:
         - cron: 0 13 * * MON
 
+permissions: read-all
+
 jobs:
     ci:
-        uses: 'terminal42/contao-build-tools/.github/workflows/build-tools.yml@main'
+        uses: 'terminal42/code-quality-tools/.github/workflows/code-quality.yml@main'
 
     tests:
         name: PHP ${{ matrix.php }}
