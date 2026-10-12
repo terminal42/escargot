@@ -14,8 +14,10 @@ interface ExceptionSubscriberInterface
 {
     /**
      * Called if a TransportException is thrown.
+     *
+     * The response is null if the request failed before the client returned one.
      */
-    public function onTransportException(CrawlUri $crawlUri, TransportExceptionInterface $exception, ResponseInterface $response): void;
+    public function onTransportException(CrawlUri $crawlUri, TransportExceptionInterface $exception, ResponseInterface|null $response): void;
 
     /**
      * Called if a HttpException is thrown.

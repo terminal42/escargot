@@ -61,7 +61,7 @@ parameters:
 			path: tests/EscargotTest.php
 
 		-
-			message: '#^Method Terminal42\\Escargot\\Subscriber\\SubscriberInterface@anonymous/tests/EscargotTest\.php\:311\:\:getUris\(\) return type has no value type specified in iterable type array\.$#'
+			message: '#^Method Terminal42\\Escargot\\Subscriber\\SubscriberInterface@anonymous/tests/EscargotTest\.php\:459\:\:getUris\(\) return type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/EscargotTest.php
@@ -97,7 +97,7 @@ parameters:
 			path: tests/EscargotTest.php
 
 		-
-			message: '#^Property Terminal42\\Escargot\\Subscriber\\SubscriberInterface@anonymous/tests/EscargotTest\.php\:311\:\:\$uris type has no value type specified in iterable type array\.$#'
+			message: '#^Property Terminal42\\Escargot\\Subscriber\\SubscriberInterface@anonymous/tests/EscargotTest\.php\:459\:\:\$uris type has no value type specified in iterable type array\.$#'
 			identifier: missingType.iterableValue
 			count: 1
 			path: tests/EscargotTest.php

@@ -188,9 +188,10 @@ There are `2` other interfaces which you might want to integrate but you don't h
 
     There are two methods to implement in this interface:
     
-    `onTransportException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response): void;`
+    `onTransportException(CrawlUri $crawlUri, TransportExceptionInterface $exception, ResponseInterface|null $response): void`
     
     These type of exceptions are thrown if there's something wrong with the transport (timeouts etc.).
+    The response is `null` if the request failed before the HTTP client returned a response object.
 
     `onHttpException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response, ChunkInterface $chunk): void;`
     
