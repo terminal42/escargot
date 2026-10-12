@@ -15,7 +15,12 @@ final class LazyQueue implements QueueInterface
      */
     private array $jobIdMapper = [];
 
-    private int $toSkip = 0;
+    /**
+     * Number of pending secondary entries already cached in the primary queue per job.
+     *
+     * @var array<string, int>
+     */
+    private array $secondaryOffsets = [];
 
     public function __construct(
         private readonly QueueInterface $primaryQueue,
@@ -39,7 +44,12 @@ final class LazyQueue implements QueueInterface
     {
         // We delete in both queues
         $this->secondaryQueue->deleteJobId($jobId);
-        $this->primaryQueue->deleteJobId($this->getJobIdFromSecondaryJobId($jobId));
+
+        if (isset($this->jobIdMapper[$jobId])) {
+            $this->primaryQueue->deleteJobId($this->jobIdMapper[$jobId]);
+        }
+
+        unset($this->jobIdMapper[$jobId], $this->secondaryOffsets[$jobId]);
     }
 
     public function getBaseUris(string $jobId): BaseUriCollection
@@ -61,6 +71,7 @@ final class LazyQueue implements QueueInterface
         $crawlUri = $this->secondaryQueue->get($jobId, $uri);
 
         if (null !== $crawlUri) {
+            $crawlUri = clone $crawlUri;
             $this->primaryQueue->add($this->getJobIdFromSecondaryJobId($jobId), $crawlUri);
 
             return $crawlUri;
@@ -73,10 +84,6 @@ final class LazyQueue implements QueueInterface
     {
         // We only add in primary and mark the URL to commit
         $this->primaryQueue->add($this->getJobIdFromSecondaryJobId($jobId), $crawlUri);
-
-        if ($crawlUri->wasMarkedProcessed()) {
-            ++$this->toSkip;
-        }
     }
 
     public function getNext(string $jobId, int $skip = 0): CrawlUri|null
@@ -88,17 +95,13 @@ final class LazyQueue implements QueueInterface
         }
 
         // Otherwise we check in the secondary and add it to our primary queue for consecutive calls.
-        // At this point we have to skip the number of queue entries that were marked in the primary
-        // queue.
-        $next = $this->secondaryQueue->getNext($jobId, $this->toSkip + $skip);
-
-        if (null !== $next) {
-            $this->primaryQueue->add($this->getJobIdFromSecondaryJobId($jobId), $next);
-
-            return $next;
+        // At this point we have to skip entries already cached in the primary queue and account
+        // for pending entries that were skipped there.
+        if ($skip > 0) {
+            $skip -= $this->primaryQueue->countPending($this->getJobIdFromSecondaryJobId($jobId));
         }
 
-        return null;
+        return $this->getNextFromSecondaryQueue($jobId, $skip);
     }
 
     public function countAll(string $jobId): int
@@ -131,8 +134,36 @@ final class LazyQueue implements QueueInterface
     public function commit(string $jobId): void
     {
         foreach ($this->primaryQueue->getAll($this->getJobIdFromSecondaryJobId($jobId)) as $crawlUri) {
-            $this->secondaryQueue->add($jobId, $crawlUri);
+            $this->secondaryQueue->add($jobId, clone $crawlUri);
         }
+
+        $this->secondaryOffsets[$jobId] = 0;
+    }
+
+    private function getNextFromSecondaryQueue(string $jobId, int $skip): CrawlUri|null
+    {
+        $primaryJobId = $this->getJobIdFromSecondaryJobId($jobId);
+        $offset = $this->secondaryOffsets[$jobId] ?? 0;
+
+        while (null !== ($next = $this->secondaryQueue->getNext($jobId, $offset))) {
+            $this->secondaryOffsets[$jobId] = ++$offset;
+
+            if (null !== $this->primaryQueue->get($primaryJobId, $next->getUri())) {
+                continue;
+            }
+
+            $next = clone $next;
+            $this->primaryQueue->add($primaryJobId, $next);
+
+            if ($skip > 0) {
+                --$skip;
+                continue;
+            }
+
+            return $next;
+        }
+
+        return null;
     }
 
     private function getJobIdFromSecondaryJobId(string $jobId): string
@@ -145,14 +176,11 @@ final class LazyQueue implements QueueInterface
         $primaryJobId = $this->primaryQueue->createJobId($baseUris);
 
         foreach ($baseUris as $baseUri) {
-            $primaryBaseCrawlUri = $this->primaryQueue->get($primaryJobId, $baseUri);
-
-            // Mark the base URI processed if it already is
+            // Preserve metadata and processing state of the base URI
             $baseCrawlUri = $this->secondaryQueue->get($jobId, $baseUri);
 
-            if ($baseCrawlUri->isProcessed()) {
-                $primaryBaseCrawlUri->markProcessed();
-                $this->primaryQueue->add($primaryJobId, $primaryBaseCrawlUri);
+            if (null !== $baseCrawlUri) {
+                $this->primaryQueue->add($primaryJobId, clone $baseCrawlUri);
             }
         }
 
