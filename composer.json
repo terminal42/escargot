@@ -33,7 +33,7 @@
         "fig/log-test": "^1.0",
         "phpunit/phpunit": "^10.5.60 || ^11.5 || ^12.5 || ^13.0",
         "symfony/finder": "^5.4|| ^6.0 || ^7.0 || ^8.0",
-        "terminal42/contao-build-tools": "@dev"
+        "terminal42/code-quality-tools": "@dev"
     },
     "config": {
         "preferred-install": {
@@ -41,7 +41,7 @@
         },
         "sort-packages": true,
         "allow-plugins": {
-            "terminal42/contao-build-tools": true
+            "terminal42/code-quality-tools": true
         }
     },
     "autoload": {
@@ -53,5 +53,19 @@
         "psr-4": {
             "Terminal42\\Escargot\\Tests\\": "tests/"
         }
+    },
+    "scripts": {
+        "cs-fixer": "@php vendor/terminal42/code-quality-tools/tools/ecs/vendor/bin/ecs check src tests --config vendor/terminal42/code-quality-tools/tools/ecs/config.php --ansi",
+        "rector": "@php vendor/terminal42/code-quality-tools/tools/rector/vendor/bin/rector process src tests --config vendor/terminal42/code-quality-tools/tools/rector/config.php --dry-run --ansi",
+        "phpstan": "@php vendor/terminal42/code-quality-tools/tools/phpstan/vendor/bin/phpstan analyze src tests --configuration vendor/terminal42/code-quality-tools/tools/phpstan/config.php --ansi",
+        "composer-dependencies": "@php vendor/terminal42/code-quality-tools/tools/composer-dependency-analyser/vendor/bin/composer-dependency-analyser --config vendor/terminal42/code-quality-tools/tools/composer-dependency-analyser/config.php",
+        "yaml-lint": "@php vendor/terminal42/code-quality-tools/tools/yamllint/vendor/bin/yaml-lint .github",
+        "code-quality": [
+            "@cs-fixer",
+            "@rector",
+            "@phpstan",
+            "@composer-dependencies",
+            "@yaml-lint"
+        ]
     }
 }
