@@ -9,7 +9,7 @@ use Psr\Log\LoggerInterface;
 
 class SubscriberLogger extends AbstractLogger
 {
-    private string|null $subscriberClass = null;
+    private readonly string|null $subscriberClass;
 
     public function __construct(
         private readonly LoggerInterface $decorated,
