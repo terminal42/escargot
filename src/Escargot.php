@@ -540,38 +540,7 @@ final class Escargot
             && !$hasMaxDurationReached
             && ($crawlUri = $this->queue->getNext($this->jobId))
         ) {
-            // Already processed, ignore
-            if ($crawlUri->isProcessed()) {
-                continue;
-            }
-
-            // Otherwise mark as processed
-            $crawlUri->markProcessed();
-            $this->queue->add($this->jobId, $crawlUri);
-
-            // Skip non http URIs
-            if (!\in_array($crawlUri->getUri()->getScheme(), ['http', 'https'], true)) {
-                $this->log(
-                    LogLevel::DEBUG,
-                    'Skipped because it\'s not a valid http(s) URI.',
-                    $crawlUri,
-                );
-                continue;
-            }
-
-            // Check if any subscriber wants this crawlUri to be requested
-            $shouldRequest = false;
-
-            foreach ($this->subscribers as $subscriber) {
-                $decision = $subscriber->shouldRequest($crawlUri);
-                $this->storeDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber, $decision);
-                if (SubscriberInterface::DECISION_POSITIVE === $decision) {
-                    $shouldRequest = true;
-                }
-            }
-
-            // No subscriber wanted the URI to be requested
-            if (!$shouldRequest) {
+            if (!$this->shouldPrepareRequest($crawlUri)) {
                 continue;
             }
 
@@ -581,13 +550,7 @@ final class Escargot
             }
 
             try {
-                $response = $this->getClient()->request(
-                    'GET',
-                    (string) $crawlUri->getUri(),
-                    [
-                        'user_data' => $crawlUri,
-                    ],
-                );
+                $response = $this->request($crawlUri);
                 $responses[] = $response;
 
                 // Mark the response as started
@@ -599,6 +562,49 @@ final class Escargot
         }
 
         return $responses;
+    }
+
+    private function shouldPrepareRequest(CrawlUri $crawlUri): bool
+    {
+        // Already processed, ignore
+        if ($crawlUri->isProcessed()) {
+            return false;
+        }
+
+        // Otherwise mark as processed
+        $crawlUri->markProcessed();
+        $this->queue->add($this->jobId, $crawlUri);
+
+        // Skip non http URIs
+        if (!\in_array($crawlUri->getUri()->getScheme(), ['http', 'https'], true)) {
+            $this->log(LogLevel::DEBUG, 'Skipped because it\'s not a valid http(s) URI.', $crawlUri);
+
+            return false;
+        }
+
+        return $this->shouldRequest($crawlUri);
+    }
+
+    private function shouldRequest(CrawlUri $crawlUri): bool
+    {
+        // Check if any subscriber wants this crawlUri to be requested
+        $shouldRequest = false;
+
+        foreach ($this->subscribers as $subscriber) {
+            $decision = $subscriber->shouldRequest($crawlUri);
+            $this->storeDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber, $decision);
+            if (SubscriberInterface::DECISION_POSITIVE === $decision) {
+                $shouldRequest = true;
+            }
+        }
+
+        // Skip the URI if no subscriber wanted it to be requested
+        return $shouldRequest;
+    }
+
+    private function request(CrawlUri $crawlUri): ResponseInterface
+    {
+        return $this->getClient()->request('GET', (string) $crawlUri->getUri(), ['user_data' => $crawlUri]);
     }
 
     private function storeDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber, string $decision): void
