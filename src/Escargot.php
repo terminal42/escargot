@@ -521,7 +521,6 @@ final class Escargot
      */
     private function prepareResponses(): array
     {
-        $response = null;
         $responses = [];
 
         $hasMaxRequestsReached = $this->isMaxRequestsReached();
@@ -549,15 +548,11 @@ final class Escargot
                 $this->clock->sleep($this->requestDelay / 1_000_000);
             }
 
-            try {
-                $response = $this->request($crawlUri);
-                $responses[] = $response;
+            $response = $this->request($crawlUri);
 
-                // Mark the response as started
-                $this->startRequest($response);
+            if (null !== $response) {
+                $responses[] = $response;
                 $hasMaxRequestsReached = $this->isMaxRequestsReached();
-            } catch (TransportExceptionInterface $exception) {
-                $this->handleException($exception, $crawlUri, $response);
             }
         }
 
@@ -602,9 +597,20 @@ final class Escargot
         return $shouldRequest;
     }
 
-    private function request(CrawlUri $crawlUri): ResponseInterface
+    private function request(CrawlUri $crawlUri): ResponseInterface|null
     {
-        return $this->getClient()->request('GET', (string) $crawlUri->getUri(), ['user_data' => $crawlUri]);
+        try {
+            $response = $this->getClient()->request('GET', (string) $crawlUri->getUri(), ['user_data' => $crawlUri]);
+        } catch (TransportExceptionInterface $exception) {
+            $this->handleException($exception, $crawlUri, null);
+
+            return null;
+        }
+
+        // Mark the response as started
+        $this->startRequest($response);
+
+        return $response;
     }
 
     private function storeDecisionForSubscriber(string $key, CrawlUri $crawlUri, SubscriberInterface $subscriber, string $decision): void
@@ -636,7 +642,7 @@ final class Escargot
         return \count($this->runningRequests) >= $this->concurrency;
     }
 
-    private function handleException(ExceptionInterface $exception, CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface|null $chunk = null): void
+    private function handleException(ExceptionInterface $exception, CrawlUri $crawlUri, ResponseInterface|null $response, ChunkInterface|null $chunk = null): void
     {
         // Log the exception
         $this->log(
@@ -645,8 +651,10 @@ final class Escargot
             $crawlUri,
         );
 
-        // Mark the responses as finished
-        $this->finishRequest($response);
+        // Mark the response as finished if the client returned one
+        if (null !== $response) {
+            $this->finishRequest($response);
+        }
 
         // Call the subscribers
         foreach ($this->subscribers as $subscriber) {
@@ -662,7 +670,7 @@ final class Escargot
 
                 match (true) {
                     $exception instanceof TransportExceptionInterface => $subscriber->onTransportException($crawlUri, $exception, $response),
-                    $exception instanceof HttpExceptionInterface => $subscriber->onHttpException($crawlUri, $exception, $response, $chunk),
+                    $exception instanceof HttpExceptionInterface => $subscriber->onHttpException($crawlUri, $exception, $response ?? $exception->getResponse(), $chunk),
                     default => throw new \RuntimeException('Unknown exception type!'),
                 };
             }
@@ -670,6 +678,6 @@ final class Escargot
 
         // Make sure the response is canceled (after all the subscribers are called as they would otherwise get the
         // canceled information rather than the original exception)
-        $response->cancel();
+        $response?->cancel();
     }
 }

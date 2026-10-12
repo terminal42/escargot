@@ -6,6 +6,7 @@ namespace Terminal42\Escargot\Tests;
 
 use Nyholm\Psr7\Uri;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
@@ -14,8 +15,12 @@ use Psr\Log\LogLevel;
 use Psr\Log\Test\TestLogger;
 use Symfony\Component\Clock\MockClock;
 use Symfony\Component\Finder\Finder;
+use Symfony\Component\HttpClient\Exception\TransportException;
 use Symfony\Component\HttpClient\MockHttpClient;
+use Symfony\Component\HttpClient\Response\MockResponse;
 use Symfony\Contracts\HttpClient\ChunkInterface;
+use Symfony\Contracts\HttpClient\Exception\HttpExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\ResponseInterface;
 use Terminal42\Escargot\BaseUriCollection;
@@ -25,6 +30,7 @@ use Terminal42\Escargot\EscargotAwareInterface;
 use Terminal42\Escargot\EscargotAwareTrait;
 use Terminal42\Escargot\Exception\ClientAlreadyCustomizedException;
 use Terminal42\Escargot\Queue\InMemoryQueue;
+use Terminal42\Escargot\Subscriber\ExceptionSubscriberInterface;
 use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
 use Terminal42\Escargot\Subscriber\SubscriberInterface;
@@ -286,6 +292,148 @@ class EscargotTest extends TestCase
         }
     }
 
+    #[DataProvider('provideRequestFailures')]
+    public function testRequestFailure(bool $precedingResponse, int $concurrency): void
+    {
+        $uris = $precedingResponse ? [new Uri('https://example.com/before')] : [];
+        $uris[] = new Uri('https://example.com/failure');
+        $uris[] = new Uri('https://example.com/after');
+        $exception = new TransportException('Request failed before returning a response');
+        $logger = new TestLogger();
+        $client = new MockHttpClient(
+            static function (string $method, string $url) use ($exception): MockResponse {
+                if ('https://example.com/failure' === $url) {
+                    throw $exception;
+                }
+
+                return new MockResponse('Success');
+            },
+        );
+        $escargot = Escargot::create(new BaseUriCollection($uris), new InMemoryQueue())
+            ->withHttpClient($client)
+            ->withConcurrency($concurrency)
+            ->withLogger($logger)
+        ;
+        $subscriber = $this->createInterestedSubscriber($exception, \count($uris) - 1);
+        $escargot->addSubscriber($subscriber);
+        $escargot->addSubscriber($this->createUninterestedSubscriber());
+
+        $escargot->crawl();
+
+        $this->assertSame(\count($uris) - 1, $client->getRequestsCount());
+        $this->assertSame(\count($uris) - 1, $escargot->getRequestsSent());
+        $this->assertTrue($logger->hasDebugThatContains($exception->getMessage()));
+    }
+
+    /**
+     * @return iterable<array{bool, int}>
+     */
+    public static function provideRequestFailures(): iterable
+    {
+        yield 'first request, sequential' => [false, 1];
+        yield 'first request, concurrent' => [false, 2];
+        yield 'after success, sequential' => [true, 1];
+        yield 'after success, concurrent' => [true, 2];
+    }
+
+    #[DataProvider('provideResponseFailures')]
+    public function testFailureWithExistingResponse(bool $transportFailure): void
+    {
+        $body = $transportFailure ? (
+            static function (): iterable {
+                yield new TransportException('Response stream failed');
+            }
+        )() : 'Service unavailable';
+        $response = new MockResponse($body, ['http_code' => $transportFailure ? 200 : 503]);
+        $escargot = Escargot::create(new BaseUriCollection([new Uri('https://example.com/')]), new InMemoryQueue())
+            ->withHttpClient(new MockHttpClient($response))
+        ;
+        /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
+        $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
+        $subscriber
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->method('needsContent')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->expects($this->once())
+            ->method($transportFailure ? 'onTransportException' : 'onHttpException')
+            ->with(
+                $this->isInstanceOf(CrawlUri::class),
+                $this->isInstanceOf($transportFailure ? TransportExceptionInterface::class : HttpExceptionInterface::class),
+                $this->callback(static fn (ResponseInterface $response): bool => 'https://example.com/' === $response->getInfo('url')
+                    && false === $response->getInfo('canceled')),
+            )
+        ;
+
+        $subscriber
+            ->expects($this->never())
+            ->method($transportFailure ? 'onHttpException' : 'onTransportException')
+        ;
+        $escargot->addSubscriber($subscriber);
+
+        $escargot->crawl();
+
+        $this->assertSame(1, $escargot->getRequestsSent());
+    }
+
+    /**
+     * @return iterable<array{bool}>
+     */
+    public static function provideResponseFailures(): iterable
+    {
+        yield 'transport failure during streaming' => [true];
+        yield 'HTTP failure' => [false];
+    }
+
+    public function testHttpExceptionFromAuxiliaryRequestPreservesCrawlResponse(): void
+    {
+        $auxiliaryClient = new MockHttpClient(new MockResponse('Unavailable', ['http_code' => 503]));
+        $auxiliaryResponse = $auxiliaryClient->request('GET', 'https://example.com/auxiliary');
+        $crawlUri = new CrawlUri(new Uri('https://example.com/crawled'), 0);
+        $escargot = Escargot::create(new BaseUriCollection([$crawlUri->getUri()]), new InMemoryQueue())
+            ->withHttpClient(new MockHttpClient(new MockResponse('OK')))
+        ;
+        /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
+        $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
+        $subscriber
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->method('needsContent')
+            ->willReturnCallback(
+                static function (CrawlUri $crawlUri, ResponseInterface $response) use ($auxiliaryResponse): string {
+                    $auxiliaryResponse->getHeaders();
+
+                    return SubscriberInterface::DECISION_POSITIVE;
+                },
+            )
+        ;
+
+        $subscriber
+            ->expects($this->once())
+            ->method('onHttpException')
+            ->with(
+                $this->callback(static fn (CrawlUri $crawlUri): bool => 'https://example.com/crawled' === (string) $crawlUri->getUri()),
+                $this->callback(static fn (HttpExceptionInterface $exception): bool => $auxiliaryResponse === $exception->getResponse()),
+                $this->callback(static fn (ResponseInterface $response): bool => 'https://example.com/crawled' === $response->getInfo('url')
+                    && 'https://example.com/crawled' === (string) $response->getInfo('user_data')->getUri()),
+            )
+        ;
+        $escargot->addSubscriber($subscriber);
+
+        $escargot->crawl();
+
+        $this->assertSame(1, $escargot->getRequestsSent());
+    }
+
     private function cleanLogs(TestLogger $testLogger): array
     {
         return array_map(
@@ -385,6 +533,60 @@ class EscargotTest extends TestCase
                 $this->uris[] = $crawlUri;
             }
         };
+    }
+
+    private function createInterestedSubscriber(TransportException $exception, int $successfulRequests): SubscriberInterface
+    {
+        /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
+        $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
+        $subscriber
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->method('needsContent')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->expects($this->exactly($successfulRequests))
+            ->method('onLastChunk')
+        ;
+
+        $subscriber
+            ->expects($this->never())
+            ->method('onHttpException')
+        ;
+
+        $subscriber
+            ->expects($this->once())
+            ->method('onTransportException')
+            ->with(
+                $this->callback(static fn (CrawlUri $crawlUri): bool => 'https://example.com/failure' === (string) $crawlUri->getUri()),
+                $exception,
+                null,
+            )
+        ;
+
+        return $subscriber;
+    }
+
+    private function createUninterestedSubscriber(): SubscriberInterface
+    {
+        /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
+        $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
+        $subscriber
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_NEGATIVE)
+        ;
+
+        $subscriber
+            ->expects($this->never())
+            ->method('onTransportException')
+        ;
+
+        return $subscriber;
     }
 }
 
