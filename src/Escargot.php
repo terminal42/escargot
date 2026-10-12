@@ -452,47 +452,8 @@ final class Escargot
 
         try {
             if ($chunk->isFirst()) {
-                // If the response was a redirect of an URI we have already crawled, we can early abort
-                // this response as it has already been processed.
-                if (
-                    $response->getInfo('redirect_count') > 0
-                    && null !== $this->queue->get($this->getJobId(), CrawlUri::normalizeUri(HttpUriFactory::create((string) $response->getInfo('url'))))
-                ) {
-                    $this->log(
-                        LogLevel::DEBUG,
-                        'Skipped further response processing because crawler got redirected to an URI that\'s already been crawled.',
-                        $crawlUri,
-                    );
-                    $response->cancel();
-                    $this->finishRequest($response);
-
+                if (!$this->processFirstChunk($crawlUri, $response, $chunk)) {
                     return;
-                }
-
-                // Makes sure an HttpException is thrown, no matter what the subscribers do to have a consistent
-                // behaviour. Otherwise whether or not the onHttpException() method would be called on the subscribers
-                // would depend on the fact if all subscribers check for the status code or not.
-                $response->getHeaders();
-
-                $needsContent = false;
-
-                foreach ($this->subscribers as $subscriber) {
-                    $shouldRequestDecision = $this->getDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber);
-                    if (SubscriberInterface::DECISION_NEGATIVE === $shouldRequestDecision) {
-                        continue;
-                    }
-
-                    $needsContentDecision = $subscriber->needsContent($crawlUri, $response, $chunk);
-                    $this->storeDecisionForSubscriber('needsContent', $crawlUri, $subscriber, $needsContentDecision);
-
-                    if (SubscriberInterface::DECISION_POSITIVE === $needsContentDecision) {
-                        $needsContent = true;
-                    }
-                }
-
-                if (!$needsContent) {
-                    $response->cancel();
-                    $this->finishRequest($response);
                 }
             }
 
@@ -509,6 +470,72 @@ final class Escargot
         } catch (ExceptionInterface $exception) {
             $this->handleException($exception, $crawlUri, $response, $chunk);
         }
+    }
+
+    private function processFirstChunk(CrawlUri $crawlUri, ResponseInterface $response, ChunkInterface $chunk): bool
+    {
+        $this->recordRedirect($crawlUri, $response);
+
+        if ($this->skipRedirectedResponse($crawlUri, $response)) {
+            return false;
+        }
+
+        // Makes sure an HttpException is thrown, no matter what the subscribers do to have a consistent
+        // behaviour. Otherwise whether or not the onHttpException() method would be called on the subscribers
+        // would depend on the fact if all subscribers check for the status code or not.
+        $response->getHeaders();
+
+        $needsContent = false;
+
+        foreach ($this->subscribers as $subscriber) {
+            $shouldRequestDecision = $this->getDecisionForSubscriber('shouldRequest', $crawlUri, $subscriber);
+            if (SubscriberInterface::DECISION_NEGATIVE === $shouldRequestDecision) {
+                continue;
+            }
+
+            $needsContentDecision = $subscriber->needsContent($crawlUri, $response, $chunk);
+            $this->storeDecisionForSubscriber('needsContent', $crawlUri, $subscriber, $needsContentDecision);
+
+            if (SubscriberInterface::DECISION_POSITIVE === $needsContentDecision) {
+                $needsContent = true;
+            }
+        }
+
+        if (!$needsContent) {
+            $response->cancel();
+            $this->finishRequest($response);
+        }
+
+        return true;
+    }
+
+    private function recordRedirect(CrawlUri $crawlUri, ResponseInterface $response): void
+    {
+        if ($response->getInfo('redirect_count') > 0) {
+            $crawlUri->markRedirectedTo(HttpUriFactory::create((string) $response->getInfo('url')));
+            $this->queue->add($this->jobId, $crawlUri);
+        }
+    }
+
+    private function skipRedirectedResponse(CrawlUri $crawlUri, ResponseInterface $response): bool
+    {
+        // If the response was a redirect of an URI we have already crawled, we can early abort
+        // this response as it has already been processed.
+        $redirectedTo = $crawlUri->getRedirectedTo();
+
+        if (null === $redirectedTo || null === $this->queue->get($this->jobId, $redirectedTo)) {
+            return false;
+        }
+
+        $this->log(
+            LogLevel::DEBUG,
+            'Skipped further response processing because crawler got redirected to an URI that\'s already been crawled.',
+            $crawlUri,
+        );
+        $response->cancel();
+        $this->finishRequest($response);
+
+        return true;
     }
 
     /**

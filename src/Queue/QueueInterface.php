@@ -49,6 +49,7 @@ interface QueueInterface
      * consecutive add() calls with the same parameters should not
      * cause the same CrawlUri to be added to the queue multiple times
      * as one URI can only ever be crawled once.
+     * Existing entries must retain updated processing state, tags and redirect information.
      */
     public function add(string $jobId, CrawlUri $crawlUri): void;
 

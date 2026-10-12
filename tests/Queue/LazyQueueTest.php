@@ -20,6 +20,29 @@ final class LazyQueueTest extends AbstractQueueTestCase
         return new LazyQueue(new InMemoryQueue(), DoctrineQueueFactory::create());
     }
 
+    public function testSavingRedirectDoesNotSkipNextUri(): void
+    {
+        $secondaryQueue = DoctrineQueueFactory::create();
+        $baseUri = new Uri('https://example.com/original');
+        $jobId = $secondaryQueue->createJobId(new BaseUriCollection([$baseUri]));
+        $secondaryQueue->add($jobId, new CrawlUri(new Uri('https://example.com/next'), 1));
+        $queue = new LazyQueue(new InMemoryQueue(), $secondaryQueue);
+        $crawlUri = $queue->getNext($jobId);
+        $this->assertInstanceOf(CrawlUri::class, $crawlUri);
+
+        $crawlUri->markProcessed();
+        $queue->add($jobId, $crawlUri);
+        $crawlUri->markRedirectedTo(new Uri('https://example.com/target'));
+        $queue->add($jobId, $crawlUri);
+
+        $this->assertSame('https://example.com/next', (string) $queue->getNext($jobId)?->getUri());
+
+        $queue->commit($jobId);
+
+        $this->assertSame('https://example.com/next', (string) $queue->getNext($jobId)?->getUri());
+        $this->assertSame('https://example.com/target', (string) $secondaryQueue->get($jobId, $baseUri)?->getRedirectedTo());
+    }
+
     #[DataProvider('provideBaseUriProcessingStates')]
     public function testRestoresBaseUriMetadata(bool $processed): void
     {
@@ -28,6 +51,7 @@ final class LazyQueueTest extends AbstractQueueTestCase
         $jobId = $secondaryQueue->createJobId(new BaseUriCollection([$baseUri]));
         $crawlUri = new CrawlUri($baseUri, 0, $processed);
         $crawlUri->addTag('restored');
+        $crawlUri->markRedirectedTo(new Uri('https://example.com/target'));
         $secondaryQueue->add($jobId, $crawlUri);
         $queue = new LazyQueue(new InMemoryQueue(), $secondaryQueue);
 
@@ -35,6 +59,7 @@ final class LazyQueueTest extends AbstractQueueTestCase
         $this->assertInstanceOf(CrawlUri::class, $stored);
         $this->assertSame($processed, $stored->isProcessed());
         $this->assertTrue($stored->hasTag('restored'));
+        $this->assertSame('https://example.com/target', (string) $stored->getRedirectedTo());
     }
 
     /**
