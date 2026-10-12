@@ -354,11 +354,13 @@ final class EscargotTest extends TestCase
         /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
         $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
         $subscriber
+            ->expects($this->once())
             ->method('shouldRequest')
             ->willReturn(SubscriberInterface::DECISION_POSITIVE)
         ;
 
         $subscriber
+            ->expects($transportFailure ? $this->once() : $this->never())
             ->method('needsContent')
             ->willReturn(SubscriberInterface::DECISION_POSITIVE)
         ;
