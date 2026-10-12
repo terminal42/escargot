@@ -121,6 +121,12 @@ The flow of every request executed by `Escargot` is as follows which maps to the
    
    `SubscriberInterface:onLastChunk()`
 
+Subscribers receive the original requested URI through `CrawlUri::getUri()`. Once the HTTP client has followed
+redirects and returned response headers, `CrawlUri::getRedirectedTo()` contains the normalized final URI.
+It returns `null` when no redirect occurred. Use `$crawlUri->getRedirectedTo() ?? $crawlUri->getUri()`
+to identify the final page. Queue implementations persist this redirect information, and the HTML crawler
+uses the final URI to resolve relative links.
+
 Adding a subscriber is accomplished by implementing the `SubscriberInterface` and registering it
 using `Escargot::addSubscriber()`:
 
@@ -193,7 +199,7 @@ There are `2` other interfaces which you might want to integrate but you don't h
     These type of exceptions are thrown if there's something wrong with the transport (timeouts etc.).
     The response is `null` if the request failed before the HTTP client returned a response object.
 
-    `onHttpException(CrawlUri $crawlUri, ExceptionInterface $exception, ResponseInterface $response, ChunkInterface $chunk): void;`
+    `onHttpException(CrawlUri $crawlUri, HttpExceptionInterface $exception, ResponseInterface $response, ChunkInterface $chunk): void`
     
     These type of exceptions are thrown if the status code was in the 300-599 range.
  

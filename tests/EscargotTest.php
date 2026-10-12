@@ -24,6 +24,8 @@ use Terminal42\Escargot\CrawlUri;
 use Terminal42\Escargot\Escargot;
 use Terminal42\Escargot\Exception\ClientAlreadyCustomizedException;
 use Terminal42\Escargot\Queue\InMemoryQueue;
+use Terminal42\Escargot\Queue\LazyQueue;
+use Terminal42\Escargot\Queue\QueueInterface;
 use Terminal42\Escargot\Subscriber\ExceptionSubscriberInterface;
 use Terminal42\Escargot\Subscriber\HtmlCrawlerSubscriber;
 use Terminal42\Escargot\Subscriber\RobotsSubscriber;
@@ -31,6 +33,7 @@ use Terminal42\Escargot\Subscriber\SubscriberInterface;
 use Terminal42\Escargot\Subscriber\TagValueResolvingSubscriberInterface;
 use Terminal42\Escargot\SubscriberLogger;
 use Terminal42\Escargot\Tests\Fixture\AbstractCompleteSubscriber;
+use Terminal42\Escargot\Tests\Fixture\DoctrineQueueFactory;
 use Terminal42\Escargot\Tests\Fixture\SearchIndexSubscriber;
 use Terminal42\Escargot\Tests\Scenario\MockResponseFactory;
 use Terminal42\Escargot\Tests\Scenario\Scenario;
@@ -413,6 +416,126 @@ final class EscargotTest extends TestCase
         $this->assertSame(1, $escargot->getRequestsSent());
     }
 
+    #[DataProvider('provideRedirectQueues')]
+    public function testRedirectDestinationIsAvailableToSubscribersAndStored(QueueInterface $queue): void
+    {
+        $original = new Uri('https://example.com/original');
+        $response = new MockResponse('Content', ['redirect_count' => 2, 'url' => 'https://example.com/final']);
+        $escargot = Escargot::create(new BaseUriCollection([$original]), $queue)
+            ->withHttpClient(new MockHttpClient($response))
+        ;
+        $escargot->addSubscriber($this->createRedirectSubscriber());
+
+        $escargot->crawl();
+
+        $stored = $queue->get($escargot->getJobId(), $original);
+        $this->assertInstanceOf(CrawlUri::class, $stored);
+        $this->assertRedirectedCrawlUri($stored);
+
+        $all = iterator_to_array($queue->getAll($escargot->getJobId()));
+        $this->assertCount(1, $all);
+        $this->assertRedirectedCrawlUri($all[0]);
+    }
+
+    /**
+     * @return iterable<array{QueueInterface}>
+     */
+    public static function provideRedirectQueues(): iterable
+    {
+        yield 'in memory' => [new InMemoryQueue()];
+        yield 'doctrine' => [DoctrineQueueFactory::create()];
+        yield 'lazy' => [new LazyQueue(new InMemoryQueue(), DoctrineQueueFactory::create())];
+    }
+
+    public function testRedirectDestinationIsAvailableForHttpExceptions(): void
+    {
+        $queue = DoctrineQueueFactory::create();
+        $response = new MockResponse('Missing', ['http_code' => 404, 'redirect_count' => 1, 'url' => 'https://example.com/final']);
+        $escargot = Escargot::create(new BaseUriCollection([new Uri('https://example.com/original')]), $queue)
+            ->withHttpClient(new MockHttpClient($response))
+        ;
+        /** @var SubscriberInterface&ExceptionSubscriberInterface&MockObject $subscriber */
+        $subscriber = $this->createMockForIntersectionOfInterfaces([SubscriberInterface::class, ExceptionSubscriberInterface::class]);
+        $subscriber
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->expects($this->once())
+            ->method('onHttpException')
+            ->willReturnCallback($this->assertRedirectedCrawlUri(...))
+        ;
+        $escargot->addSubscriber($subscriber);
+
+        $escargot->crawl();
+
+        $stored = $queue->get($escargot->getJobId(), new Uri('https://example.com/original'));
+        $this->assertInstanceOf(CrawlUri::class, $stored);
+        $this->assertRedirectedCrawlUri($stored);
+    }
+
+    #[DataProvider('provideRedirectQueues')]
+    public function testSkippedRedirectDestinationIsStored(QueueInterface $queue): void
+    {
+        $final = new Uri('https://example.com/final');
+        $original = new Uri('https://example.com/original');
+        $response = new MockResponse('Duplicate', ['redirect_count' => 1, 'url' => (string) $final]);
+        $escargot = Escargot::create(new BaseUriCollection([$final, $original]), $queue)
+            ->withHttpClient(new MockHttpClient([new MockResponse('Content'), $response]))
+            ->withConcurrency(1)
+        ;
+        $subscriber = $this->createMock(SubscriberInterface::class);
+        $subscriber
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->expects($this->once())
+            ->method('needsContent')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->expects($this->once())
+            ->method('onLastChunk')
+        ;
+        $escargot->addSubscriber($subscriber);
+
+        $escargot->crawl();
+
+        $all = iterator_to_array($queue->getAll($escargot->getJobId()));
+        $this->assertCount(2, $all);
+        $this->assertRedirectedCrawlUri($all[1]);
+    }
+
+    public function testRelativeLinksUseRedirectDestination(): void
+    {
+        $requests = [];
+        $client = $this->createRedirectedHtmlClient($requests);
+        $escargot = Escargot::create(new BaseUriCollection([new Uri('https://example.com/original')]), new InMemoryQueue())
+            ->withHttpClient($client)
+        ;
+        $subscriber = $this->createMock(SubscriberInterface::class);
+        $subscriber
+            ->expects($this->exactly(2))
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+
+        $subscriber
+            ->method('needsContent')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+        $escargot->addSubscriber($subscriber);
+        $escargot->addSubscriber(new HtmlCrawlerSubscriber());
+
+        $escargot->crawl();
+
+        $this->assertSame(['https://example.com/original', 'https://example.com/new/child'], $requests);
+    }
+
     /**
      * @return array<string>
      */
@@ -434,6 +557,61 @@ final class EscargotTest extends TestCase
             },
             $testLogger->records,
         );
+    }
+
+    /**
+     * @param list<string> $requests
+     */
+    private function createRedirectedHtmlClient(array &$requests): MockHttpClient
+    {
+        return new MockHttpClient(
+            static function (string $method, string $url) use (&$requests): MockResponse {
+                $requests[] = $url;
+
+                if ('https://example.com/original' === $url) {
+                    return new MockResponse('<a href="child">Child</a>', [
+                        'redirect_count' => 1,
+                        'url' => 'https://example.com/new/index',
+                        'response_headers' => ['content-type: text/html'],
+                    ]);
+                }
+
+                return new MockResponse('Done');
+            },
+        );
+    }
+
+    private function createRedirectSubscriber(): SubscriberInterface
+    {
+        $subscriber = $this->createMock(SubscriberInterface::class);
+        $subscriber
+            ->method('shouldRequest')
+            ->willReturn(SubscriberInterface::DECISION_POSITIVE)
+        ;
+        $subscriber
+            ->expects($this->once())
+            ->method('needsContent')
+            ->willReturnCallback(
+                function (CrawlUri $crawlUri): string {
+                    $this->assertRedirectedCrawlUri($crawlUri);
+
+                    return SubscriberInterface::DECISION_POSITIVE;
+                },
+            )
+        ;
+        $subscriber
+            ->expects($this->once())
+            ->method('onLastChunk')
+            ->willReturnCallback($this->assertRedirectedCrawlUri(...))
+        ;
+
+        return $subscriber;
+    }
+
+    private function assertRedirectedCrawlUri(CrawlUri $crawlUri): void
+    {
+        $this->assertSame('https://example.com/original', (string) $crawlUri->getUri());
+        $this->assertSame('https://example.com/final', (string) $crawlUri->getRedirectedTo());
     }
 
     private function createResponseFailureSubscriber(bool $transportFailure): SubscriberInterface

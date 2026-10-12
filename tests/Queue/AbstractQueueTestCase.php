@@ -126,4 +126,29 @@ abstract class AbstractQueueTestCase extends TestCase
 
         $this->assertCount(0, iterator_to_array($queue->getAll($jobId)));
     }
+
+    public function testRedirectDestinationIsPersisted(): void
+    {
+        $queue = $this->getQueue();
+        $jobId = $queue->createJobId(new BaseUriCollection());
+        $crawlUri = new CrawlUri(new Uri('https://example.com/original'), 0);
+
+        foreach ([new Uri('https://example.com/target#fragment'), new Uri('https://example.com/updated'), null] as $redirectedTo) {
+            $crawlUri->markRedirectedTo($redirectedTo);
+            $queue->add($jobId, $crawlUri);
+            $expected = null === $redirectedTo ? null : (string) CrawlUri::normalizeUri($redirectedTo);
+
+            $stored = $queue->get($jobId, $crawlUri->getUri());
+            $this->assertInstanceOf(CrawlUri::class, $stored);
+            $this->assertSame($expected, $stored->getRedirectedTo() ? (string) $stored->getRedirectedTo() : null);
+
+            $next = $queue->getNext($jobId);
+            $this->assertInstanceOf(CrawlUri::class, $next);
+            $this->assertSame($expected, $next->getRedirectedTo() ? (string) $next->getRedirectedTo() : null);
+
+            $all = iterator_to_array($queue->getAll($jobId));
+            $this->assertCount(1, $all);
+            $this->assertSame($expected, $all[0]->getRedirectedTo() ? (string) $all[0]->getRedirectedTo() : null);
+        }
+    }
 }

@@ -14,6 +14,8 @@ final class CrawlUri implements \Stringable
 
     private UriInterface|null $foundOn = null;
 
+    private UriInterface|null $redirectedTo = null;
+
     /**
      * @var array<array-key, true>
      */
@@ -34,11 +36,12 @@ final class CrawlUri implements \Stringable
 
     public function __toString(): string
     {
-        return \sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s, Tags: %s)',
+        return \sprintf('URI: %s (Level: %d, Processed: %s, Found on: %s,%sTags: %s)',
             (string) $this->getUri(),
             $this->getLevel(),
             $this->isProcessed() ? 'yes' : 'no',
             (string) ($this->getFoundOn() ?: 'root'),
+            null !== $this->redirectedTo ? \sprintf(' Redirected to: %s, ', $this->redirectedTo) : ' ',
             $this->getTags() ? implode(', ', $this->getTags()) : 'none',
         );
     }
@@ -51,6 +54,18 @@ final class CrawlUri implements \Stringable
     public function getUri(): UriInterface
     {
         return $this->uri;
+    }
+
+    public function getRedirectedTo(): UriInterface|null
+    {
+        return $this->redirectedTo;
+    }
+
+    public function markRedirectedTo(UriInterface|null $redirectedTo): self
+    {
+        $this->redirectedTo = null === $redirectedTo ? null : self::normalizeUri($redirectedTo);
+
+        return $this;
     }
 
     public function isProcessed(): bool

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Terminal42\Escargot\Queue;
 
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Query\QueryBuilder;
 use Doctrine\DBAL\Schema\Table;
 use Doctrine\DBAL\Types\Types;
 use Psr\Http\Message\UriInterface;
@@ -80,7 +81,7 @@ final class DoctrineQueue implements QueueInterface
     public function get(string $jobId, UriInterface $uri): CrawlUri|null
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, processed, found_on, tags')
+            ->select('uri, level, processed, found_on, redirected_to, tags')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->andWhere('uri_hash = :uri_hash')
@@ -100,39 +101,16 @@ final class DoctrineQueue implements QueueInterface
 
     public function add(string $jobId, CrawlUri $crawlUri): void
     {
-        $queryBuilder = $this->connection->createQueryBuilder();
-
-        if (null === $this->get($jobId, $crawlUri->getUri())) {
-            $queryBuilder
-                ->insert($this->tableName)
-                ->values([
-                    'job_id' => ':jobId',
-                    'uri' => ':uri',
-                    'uri_hash' => ':uri_hash',
-                    'level' => ':level',
-                    'found_on' => ':foundOn',
-                    'processed' => ':processed',
-                    'tags' => ':tags',
-                ])
-                ->setParameter('uri', (string) $crawlUri->getUri(), Types::STRING)
-                ->setParameter('level', $crawlUri->getLevel(), Types::INTEGER)
-                ->setParameter('foundOn', $crawlUri->getFoundOn(), Types::STRING)
-            ;
-        } else {
-            $queryBuilder
-                ->update($this->tableName)
-                ->set('processed', ':processed')
-                ->set('tags', ':tags')
-                ->where('job_id = :jobId')
-                ->andWhere('uri_hash = :uri_hash')
-            ;
-        }
+        $queryBuilder = null === $this->get($jobId, $crawlUri->getUri())
+            ? $this->createInsertQueryBuilder($crawlUri)
+            : $this->createUpdateQueryBuilder();
 
         $queryBuilder
             ->setParameter('jobId', $jobId, Types::STRING)
             ->setParameter('uri_hash', $this->getUriHash($crawlUri->getUri()), Types::STRING)
             ->setParameter('processed', $crawlUri->isProcessed(), Types::BOOLEAN)
             ->setParameter('tags', implode(',', $crawlUri->getTags()), Types::TEXT)
+            ->setParameter('redirectedTo', $crawlUri->getRedirectedTo(), Types::STRING)
             ->executeStatement()
         ;
     }
@@ -140,7 +118,7 @@ final class DoctrineQueue implements QueueInterface
     public function getNext(string $jobId, int $skip = 0): CrawlUri|null
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, processed, found_on, tags')
+            ->select('uri, level, processed, found_on, redirected_to, tags')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->andWhere('processed = :processed')
@@ -194,7 +172,7 @@ final class DoctrineQueue implements QueueInterface
     public function getAll(string $jobId): \Generator
     {
         $queryBuilder = $this->connection->createQueryBuilder()
-            ->select('uri, level, processed, found_on, tags')
+            ->select('uri, level, processed, found_on, redirected_to, tags')
             ->from($this->tableName)
             ->where('job_id = :jobId')
             ->orderBy('id', 'ASC')
@@ -241,19 +219,7 @@ final class DoctrineQueue implements QueueInterface
             ->setNotnull(true)
         ;
 
-        $table->addColumn('uri_hash', Types::STRING)
-            ->setLength(40)
-            ->setFixed(true)
-            ->setNotnull(true)
-        ;
-
-        $table->addColumn('uri', Types::TEXT)
-            ->setNotnull(true)
-        ;
-
-        $table->addColumn('found_on', Types::TEXT)
-            ->setNotnull(false)
-        ;
+        $this->addUriColumns($table);
 
         $table->addColumn('level', Types::INTEGER)
             ->setNotnull(true)
@@ -276,6 +242,59 @@ final class DoctrineQueue implements QueueInterface
         return $table;
     }
 
+    private function createInsertQueryBuilder(CrawlUri $crawlUri): QueryBuilder
+    {
+        return $this->connection->createQueryBuilder()
+            ->insert($this->tableName)
+            ->values([
+                'job_id' => ':jobId',
+                'uri' => ':uri',
+                'uri_hash' => ':uri_hash',
+                'level' => ':level',
+                'found_on' => ':foundOn',
+                'redirected_to' => ':redirectedTo',
+                'processed' => ':processed',
+                'tags' => ':tags',
+            ])
+            ->setParameter('uri', (string) $crawlUri->getUri(), Types::STRING)
+            ->setParameter('level', $crawlUri->getLevel(), Types::INTEGER)
+            ->setParameter('foundOn', $crawlUri->getFoundOn(), Types::STRING)
+        ;
+    }
+
+    private function createUpdateQueryBuilder(): QueryBuilder
+    {
+        return $this->connection->createQueryBuilder()
+            ->update($this->tableName)
+            ->set('processed', ':processed')
+            ->set('tags', ':tags')
+            ->set('redirected_to', ':redirectedTo')
+            ->where('job_id = :jobId')
+            ->andWhere('uri_hash = :uri_hash')
+        ;
+    }
+
+    private function addUriColumns(Table $table): void
+    {
+        $table->addColumn('uri_hash', Types::STRING)
+            ->setLength(40)
+            ->setFixed(true)
+            ->setNotnull(true)
+        ;
+
+        $table->addColumn('uri', Types::TEXT)
+            ->setNotnull(true)
+        ;
+
+        $table->addColumn('found_on', Types::TEXT)
+            ->setNotnull(false)
+        ;
+
+        $table->addColumn('redirected_to', Types::TEXT)
+            ->setNotnull(false)
+        ;
+    }
+
     /**
      * @param array<string, string> $data
      */
@@ -293,6 +312,10 @@ final class DoctrineQueue implements QueueInterface
             foreach (explode(',', $data['tags']) as $tag) {
                 $crawlUri->addTag($tag);
             }
+        }
+
+        if ($data['redirected_to']) {
+            $crawlUri->markRedirectedTo(HttpUriFactory::create($data['redirected_to']));
         }
 
         return $crawlUri;
