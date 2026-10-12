@@ -7,7 +7,7 @@ namespace Terminal42\Escargot\Tests\Queue;
 use Terminal42\Escargot\Queue\InMemoryQueue;
 use Terminal42\Escargot\Queue\QueueInterface;
 
-class InMemoryQueueTestCase extends AbstractQueueTestCase
+class InMemoryQueueTest extends AbstractQueueTestCase
 {
     public function getQueue(): QueueInterface
     {

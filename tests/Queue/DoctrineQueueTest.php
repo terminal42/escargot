@@ -11,7 +11,7 @@ use Doctrine\DBAL\Tools\DsnParser;
 use Terminal42\Escargot\Queue\DoctrineQueue;
 use Terminal42\Escargot\Queue\QueueInterface;
 
-class DoctrineQueueTestCase extends AbstractQueueTestCase
+class DoctrineQueueTest extends AbstractQueueTestCase
 {
     private DoctrineQueue $queue;
 
