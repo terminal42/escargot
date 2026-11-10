@@ -236,7 +236,7 @@ final class DoctrineQueue implements QueueInterface
         $table->setPrimaryKey(['id']);
         $table->addIndex(['job_id']);
         $table->addIndex(['level']);
-        $table->addIndex(['uri']);
+        $table->addIndex(['uri_hash']);
         $table->addIndex(['processed']);
 
         return $table;
