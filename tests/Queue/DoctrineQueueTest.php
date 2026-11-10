@@ -8,6 +8,7 @@ use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Schema\DefaultSchemaManagerFactory;
+use Doctrine\DBAL\Schema\Index;
 use Doctrine\DBAL\Tools\DsnParser;
 use Nyholm\Psr7\Uri;
 use Terminal42\Escargot\CrawlUri;
@@ -46,6 +47,11 @@ final class DoctrineQueueTest extends AbstractQueueTestCase
         $this->assertSame('escargot', $table->getName());
         $this->assertSame(['id'], $table->getPrimaryKey()?->getColumns());
         $this->assertFalse($table->getColumn('redirected_to')->getNotnull());
+
+        $indexedColumns = array_map(static fn (Index $index): array => $index->getColumns(), $table->getIndexes());
+
+        $this->assertContains(['uri_hash'], $indexedColumns);
+        $this->assertNotContains(['uri'], $indexedColumns);
     }
 
     public function testSchemaMigrationPreservesExistingRows(): void
@@ -53,6 +59,14 @@ final class DoctrineQueueTest extends AbstractQueueTestCase
         $schemaManager = $this->connection->createSchemaManager();
         $table = $this->queue->getTableSchema();
         $table->dropColumn('redirected_to');
+
+        foreach ($table->getIndexes() as $index) {
+            if (['uri_hash'] === $index->getColumns()) {
+                $table->dropIndex($index->getName());
+            }
+        }
+
+        $table->addIndex(['uri']);
         $schemaManager->dropTable($table->getName());
         $schemaManager->createTable($table);
         $uri = new Uri('https://example.com/original');
@@ -65,6 +79,14 @@ final class DoctrineQueueTest extends AbstractQueueTestCase
         ]);
 
         $this->queue->createSchema();
+
+        $indexedColumns = array_map(
+            static fn (Index $index): array => $index->getColumns(),
+            $schemaManager->introspectTable('escargot')->getIndexes(),
+        );
+
+        $this->assertContains(['uri_hash'], $indexedColumns);
+        $this->assertNotContains(['uri'], $indexedColumns);
 
         $crawlUri = $this->queue->get('legacy', $uri);
         $this->assertInstanceOf(CrawlUri::class, $crawlUri);
